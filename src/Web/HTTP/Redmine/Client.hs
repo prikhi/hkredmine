@@ -58,6 +58,8 @@ defaultRedmineConfig     = do
                              , redURL     = ""
                              , redManager = man }
 
+-- | Send a GET request to the given 'EndPoint' along with any passed
+-- parameters
 getEndPoint :: FromJSON a =>
                 EndPoint -> [(B.ByteString, B.ByteString)] -> Redmine a
 getEndPoint ep getData = do
@@ -67,10 +69,11 @@ getEndPoint ep getData = do
                                             [ ("Content-Type", "application/json")
                                             , ("X-Redmine-API-Key", redAPI config)]
                                       , method         = "GET" }
-        makeRequest config redReq
+        makeRequest redReq
         where getParams = "?" ++ concatMap (\(a, v) -> "&" ++ BC.unpack a ++ "=" ++ BC.unpack v) getData
 
--- | Queries an API 'EndPoint' with a POST Request
+-- | Send a POST request to the given 'EndPoint' along with any passed
+-- parameters
 postEndPoint :: FromJSON a =>
                 EndPoint -> [(B.ByteString, B.ByteString)] -> Redmine a
 postEndPoint ep postData = do
@@ -81,9 +84,12 @@ postEndPoint ep postData = do
                                     [ ("Content-Type", "application/json")
                                     , ("X-Redmine-API-Key", redAPI config)]
                               , method         = "GET" }
-        makeRequest config redReq
-makeRequest :: FromJSON a => RedmineConfig -> Request -> Redmine a
-makeRequest config request = do
+        makeRequest redReq
+
+-- | Send a Request to a Redmine Instance
+makeRequest :: FromJSON a => Request -> Redmine a
+makeRequest request = do
+        config   <- get
         response <- catch (httpLbs request $ redManager config)
             (\e -> case e :: HttpException of
                 StatusCodeException status _ _ -> lift . lift . lift . left $
@@ -96,5 +102,6 @@ makeRequest config request = do
 -- | Builds the URL for the 'EndPoint'
 makeURL :: String -> EndPoint -> String
 makeURL url e         = url ++ endpoint e ++ ".json"
-        where endpoint GetProjects = "projects"
-              endpoint GetIssues   = "issues"
+        where endpoint GetProjects  = "projects"
+              endpoint GetIssues    = "issues"
+              endpoint (GetIssue i) = "issues/" ++ show i

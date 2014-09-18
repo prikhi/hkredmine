@@ -18,6 +18,8 @@ a 'RedmineConfig'. You will need to override the default 'redAPI' and
 The following actions are currently supported:
 
 * Fetching All Projects
+* Fetching All/Personal Issues
+
 
 -}
 module Web.HTTP.Redmine
@@ -43,7 +45,7 @@ module Web.HTTP.Redmine
         , issuesTable
         ) where
 
-import qualified Data.ByteString.Char8 as BC      (pack)
+import qualified Data.ByteString.Char8 as BC    (pack)
 
 import Web.HTTP.Redmine.Client
 import Web.HTTP.Redmine.Format
@@ -52,16 +54,19 @@ import Web.HTTP.Redmine.Types
 
 -- | Retrieve All the Projects
 getProjects :: Redmine Projects
-getProjects = getEndPoint GetProjects []
+getProjects             = getEndPoint GetProjects []
 
 -- | Retrieve All Issues of a Project
 getAllIssues :: Integer -> Redmine Issues
-getAllIssues projectID = getEndPoint GetIssues [ ("project_id", BC.pack $ show projectID) ]
+getAllIssues projectID  = getEndPoint GetIssues
+        [ ("project_id", BC.pack $ show projectID)
+        ]
 
 -- | Retrieve Issues of a Project Assigned to the User
 getMyIssues :: Integer -> Redmine Issues
-getMyIssues projectID = getEndPoint GetIssues [ ("project_id", BC.pack $ show projectID)
-                                              , ("assigned_to_id", "me")
-                                              , ("offset", "0")
-                                              , ("limit", "100")
-                                              ]
+getMyIssues projectID   = getEndPoint GetIssues
+        [ ("project_id", BC.pack $ show projectID)
+        , ("assigned_to_id", "me")
+        , ("offset", "0")
+        , ("limit", "100")
+        ]

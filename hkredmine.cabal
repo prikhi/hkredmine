@@ -18,7 +18,9 @@ executable hkredmine
   build-depends:       base >=4.7 && <4.8,
                        hkredmine,
                        transformers,
-                       directory
+                       directory,
+                       cmdargs,
+                       time
 
   ghc-options:         -Wall
   hs-source-dirs:      bin

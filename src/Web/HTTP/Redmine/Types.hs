@@ -23,6 +23,7 @@ import Data.Aeson           ((.:), FromJSON, parseJSON, Value(Object))
 -- | API EndPoints
 data EndPoint    = GetProjects
                  | GetIssues
+                 | GetIssue Integer
                  deriving (Show)
 
 -- | A Redmine Project
