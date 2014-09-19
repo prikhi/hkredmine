@@ -15,12 +15,16 @@ cabal-version:       >=1.10
 
 executable hkredmine
   main-is:             Main.hs
+  other-modules:       Main.Utils
   build-depends:       base >=4.7 && <4.8,
+                       aeson,
                        hkredmine,
+                       http-client,
                        transformers,
                        directory,
                        cmdargs,
-                       time
+                       time,
+                       bytestring
 
   ghc-options:         -Wall
   hs-source-dirs:      bin
@@ -34,6 +38,7 @@ library
                        Web.HTTP.Redmine.Types
   build-depends:       base >=4.7 && <4.8,
                        http-conduit,
+                       http-client,
                        http-types,
                        aeson,
                        bytestring,

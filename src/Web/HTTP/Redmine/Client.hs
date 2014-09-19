@@ -1,4 +1,4 @@
-{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE OverloadedStrings, FlexibleContexts #-}
 {-|
 -
 - This Module contains functions related to interacting with the a Redmine
@@ -13,7 +13,12 @@ module Web.HTTP.Redmine.Client
         , defaultRedmineConfig
         , getEndPoint
         , postEndPoint
+        , putEndPoint
         ) where
+
+import qualified Data.ByteString as B
+import qualified Data.ByteString.Char8 as BC
+import qualified Data.ByteString.Lazy.Char8 as LBC
 
 import Control.Exception.Lifted         (catch, throwIO)
 import Control.Monad.IO.Class           (MonadIO, liftIO)
@@ -23,8 +28,6 @@ import Control.Monad.Trans.Class        (lift)
 import Control.Monad.Trans.Either       (runEitherT, EitherT, hoistEither, left)
 import Control.Monad.Trans.Resource     (runResourceT, ResourceT)
 import Data.Aeson                       (eitherDecode, FromJSON)
-import qualified Data.ByteString as B
-import qualified Data.ByteString.Char8 as BC
 import Network.HTTP.Conduit
 import Network.HTTP.Types               (statusCode, statusMessage)
 
@@ -63,19 +66,20 @@ defaultRedmineConfig     = do
 getEndPoint :: FromJSON a =>
                 EndPoint -> [(B.ByteString, B.ByteString)] -> Redmine a
 getEndPoint ep getData = do
-        config   <- get
-        initReq  <- liftIO $ parseUrl $ makeURL (redURL config) ep ++ getParams
+        config      <- get
+        initReq     <- liftIO $ parseUrl $ makeURL (redURL config) ep ++ getParams
         let redReq  = initReq { requestHeaders =
-                                            [ ("Content-Type", "application/json")
-                                            , ("X-Redmine-API-Key", redAPI config)]
-                                      , method         = "GET" }
-        makeRequest redReq
-        where getParams = "?" ++ concatMap (\(a, v) -> "&" ++ BC.unpack a ++ "=" ++ BC.unpack v) getData
+                                    [ ("Content-Type", "application/json")
+                                    , ("X-Redmine-API-Key", redAPI config)]
+                              , method         = "GET" }
+        response    <- makeRequest redReq
+        lift . lift . lift . hoistEither . eitherDecode . responseBody $ response
+        where getParams = "?" ++ concatMap (\(a, v) -> "&" ++ BC.unpack a ++
+                                                       "=" ++ BC.unpack v) getData
 
 -- | Send a POST request to the given 'EndPoint' along with any passed
 -- parameters
-postEndPoint :: FromJSON a =>
-                EndPoint -> [(B.ByteString, B.ByteString)] -> Redmine a
+postEndPoint :: EndPoint -> [(B.ByteString, B.ByteString)] -> Redmine ()
 postEndPoint ep postData = do
         config   <- get
         initReq  <- liftIO $ parseUrl $ makeURL (redURL config) ep
@@ -83,25 +87,42 @@ postEndPoint ep postData = do
             redReq  = postReq { requestHeaders =
                                     [ ("Content-Type", "application/json")
                                     , ("X-Redmine-API-Key", redAPI config)]
-                              , method         = "GET" }
-        makeRequest redReq
+                              , method         = "POST" }
+        _        <-  makeRequest redReq
+        return ()
+
+-- | Send a PUT request to the given 'EndPoint' along with any passed
+-- parameters
+putEndPoint :: EndPoint -> String -> Redmine ()
+putEndPoint ep putData  = do
+        config   <- get
+        initReq  <- liftIO $ parseUrl $ makeURL (redURL config) ep
+        let redReq  = initReq { requestHeaders  =
+                                    [ ("Content-Type", "application/json")
+                                    , ("X-Redmine-API-Key", redAPI config)]
+                              , requestBody     = RequestBodyBS . BC.pack $ putData
+                              , method          = "PUT"
+                              , responseTimeout  = Nothing }
+        _        <-  makeRequest redReq
+        return ()
 
 -- | Send a Request to a Redmine Instance
-makeRequest :: FromJSON a => Request -> Redmine a
+makeRequest :: Request -> Redmine (Response LBC.ByteString)
 makeRequest request = do
         config   <- get
-        response <- catch (httpLbs request $ redManager config)
+        catch (httpLbs request $ redManager config)
             (\e -> case e :: HttpException of
                 StatusCodeException status _ _ -> lift . lift . lift . left $
                         "Status Code: " ++ show (statusCode status) ++ "\n" ++
                         "Status Message: " ++ show (statusMessage status)
                 _                              -> throwIO e)
-        lift . lift . lift . hoistEither . eitherDecode . responseBody $ response
 
 
 -- | Builds the URL for the 'EndPoint'
 makeURL :: String -> EndPoint -> String
 makeURL url e         = url ++ endpoint e ++ ".json"
-        where endpoint GetProjects  = "projects"
-              endpoint GetIssues    = "issues"
-              endpoint (GetIssue i) = "issues/" ++ show i
+        where endpoint GetProjects      = "projects"
+              endpoint GetIssues        = "issues"
+              endpoint GetStatuses      = "issue_statuses"
+              endpoint (GetIssue i)     = "issues/" ++ show i
+              endpoint (UpdateIssue i)  = "issues/" ++ show i

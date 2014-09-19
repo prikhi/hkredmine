@@ -1,0 +1,53 @@
+{-|
+-
+- This module contains utility functions used by the `hkredmine` executable
+-
+-}
+module Main.Utils
+        ( getAppDir
+        , writeAppFile
+        , readAppFile
+        , readFileOrExit
+        , writeTimeFile
+        ) where
+
+import Control.Exception        (catch)
+import Data.Time.Clock.POSIX    (getPOSIXTime)
+import System.Exit              (exitFailure)
+import System.Directory         (getAppUserDataDirectory)
+
+-- | Retrieve the App's UserData directory
+getAppDir :: IO FilePath
+getAppDir = getAppUserDataDirectory "hkredmine"
+
+-- | Write a string to a file in the Apps's UserData directory.
+writeAppFile :: String      -- ^ The File Name
+             -> String      -- ^ The File's Content
+             -> IO ()
+writeAppFile fn content = do
+        appDir      <- getAppDir
+        writeFile (appDir ++ "/" ++ fn) content
+
+-- | Read a file in the App's UserData directory.
+readAppFile :: String       -- ^ The File Name
+            -> IO String    -- ^ The File's Content
+readAppFile  fn         = do
+        appDir      <- getAppDir
+        readFile $ appDir ++ "/" ++ fn
+
+
+-- | Read from the specified file, returning the contents or
+-- exiting with an error.
+readFileOrExit :: String    -- ^ The File Name
+               -> String    -- ^ The Error Message to print before exiting.
+               -> IO String
+readFileOrExit fn err   =
+        catch (readAppFile fn)
+              ((\_  -> putStrLn err >> exitFailure) :: IOError -> IO String)
+
+-- | Write the curent time to a file.
+writeTimeFile :: String     -- ^ The File Name
+              -> IO ()
+writeTimeFile fn        = do
+        currentTime <- getPOSIXTime
+        writeAppFile fn $ show currentTime ++ "\n"

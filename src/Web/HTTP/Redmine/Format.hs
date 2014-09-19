@@ -11,6 +11,7 @@ module Web.HTTP.Redmine.Format
         ) where
 
 import Data.List    (intercalate)
+import Data.Maybe   (fromMaybe)
 
 import Web.HTTP.Redmine.FormatTable
 import Web.HTTP.Redmine.Types
@@ -45,11 +46,11 @@ projectDetail p = intercalate "\n"
 -- | Create a Table of Issues with an ID#, Tracker, Status, Priority,
 -- Category & Subject.
 issuesTable :: [Issue] -> String
-issuesTable = showTable [ ColDesc center "ID" left (show . issueId)
+issuesTable = showTable [ ColDesc center "ID" left $ show . issueId
                         , ColDesc center "Subject" left issueSubject
                         , ColDesc center "Status" left issueStatus
                         , ColDesc center "Priority" left issuePriority
                         , ColDesc center "Tracker" left issueTracker
-                        , ColDesc center "Category" left issueCategory
+                        , ColDesc center "Category" left $ fromMaybe "" . issueCategory
                         ]
 

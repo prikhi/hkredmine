@@ -1,4 +1,4 @@
-{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE OverloadedStrings, FlexibleContexts #-}
 {-|
 Module          : Web.HTTP.Redmine
 Description     : An API Library for the Redmine Bug Tracker
@@ -29,16 +29,23 @@ module Web.HTTP.Redmine
         , runRedmine
         , defaultRedmineConfig
         -- * Redmine Types
+        , ProjectId
         , Project(..)
         , Projects(..)
+        , IssueId
         , Issue(..)
         , Issues(..)
+        , Status(..)
         -- ** API-related Types
         , RedmineConfig(..)
         -- * Redmine API Functions
         , getProjects
         , getAllIssues
         , getMyIssues
+        , getIssue
+        , getStatusFromName
+        , getStatusFromId
+        , updateIssue
         -- * Formatting
         , projectsTable
         , projectDetail
@@ -46,27 +53,56 @@ module Web.HTTP.Redmine
         ) where
 
 import qualified Data.ByteString.Char8 as BC    (pack)
+import qualified Data.List as L                 (find)
 
 import Web.HTTP.Redmine.Client
 import Web.HTTP.Redmine.Format
 import Web.HTTP.Redmine.Types
 
 
--- | Retrieve All the Projects
+-- Projects
+-- | Retrieve All the 'Projects'
 getProjects :: Redmine Projects
 getProjects             = getEndPoint GetProjects []
 
--- | Retrieve All Issues of a Project
-getAllIssues :: Integer -> Redmine Issues
+
+-- Issues
+-- | Retrieve All 'Issues' of a Project
+getAllIssues :: ProjectId -> Redmine Issues
 getAllIssues projectID  = getEndPoint GetIssues
         [ ("project_id", BC.pack $ show projectID)
         ]
 
--- | Retrieve Issues of a Project Assigned to the User
-getMyIssues :: Integer -> Redmine Issues
+-- | Retrieve 'Issues' of a Project Assigned to the User
+getMyIssues :: ProjectId -> Redmine Issues
 getMyIssues projectID   = getEndPoint GetIssues
         [ ("project_id", BC.pack $ show projectID)
         , ("assigned_to_id", "me")
         , ("offset", "0")
         , ("limit", "100")
         ]
+
+-- | Retrieve an 'Issue'
+getIssue :: IssueId -> Redmine Issue
+getIssue issueID            = getEndPoint (GetIssue issueID) []
+
+-- | Update the Due Date of an Issue
+updateIssue ::  IssueId -> String -> Redmine ()
+updateIssue issueID         = putEndPoint $ UpdateIssue issueID
+
+-- Statuses
+-- | Retrieve All Available Statuses
+getStatuses :: Redmine Statuses
+getStatuses = getEndPoint GetStatuses []
+
+-- | Retrieve the 'Status' with the given name.
+getStatusFromName :: String              -- ^ The Name of the Status
+                  -> Redmine (Maybe Status)
+getStatusFromName name      = do
+        (Statuses ss) <- getStatuses
+        return $ L.find ((== name) . statusName) ss
+
+getStatusFromId :: Integer -> Redmine (Maybe Status)
+getStatusFromId i       = do
+        (Statuses ss) <- getStatuses
+        return $ L.find ((== i) . statusId) ss
