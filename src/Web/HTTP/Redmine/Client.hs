@@ -1,4 +1,4 @@
-{-# LANGUAGE OverloadedStrings, FlexibleContexts #-}
+{-# LANGUAGE OverloadedStrings #-}
 {-|
 -
 - This Module contains functions related to interacting with the a Redmine
@@ -11,6 +11,7 @@ module Web.HTTP.Redmine.Client
         , runRedmine
         , RedmineConfig(..)
         , defaultRedmineConfig
+        , redmineLeft
         , getEndPoint
         , postEndPoint
         , putEndPoint
@@ -21,6 +22,7 @@ import qualified Data.ByteString.Char8 as BC
 import qualified Data.ByteString.Lazy.Char8 as LBC
 
 import Control.Exception.Lifted         (catch, throwIO)
+import Control.Monad                    (void)
 import Control.Monad.IO.Class           (MonadIO, liftIO)
 import Control.Monad.Logger             (runStderrLoggingT, LoggingT)
 import Control.Monad.State              (evalStateT, StateT, get)
@@ -61,6 +63,10 @@ defaultRedmineConfig     = do
                              , redURL     = ""
                              , redManager = man }
 
+-- | Return an irrecoverable error in the 'Redmine' Monad.
+redmineLeft :: String -> Redmine a
+redmineLeft = lift . lift . lift . left
+
 -- | Send a GET request to the given 'EndPoint' along with any passed
 -- parameters
 getEndPoint :: FromJSON a =>
@@ -88,8 +94,8 @@ postEndPoint ep postData = do
                                     [ ("Content-Type", "application/json")
                                     , ("X-Redmine-API-Key", redAPI config)]
                               , method         = "POST" }
-        _        <-  makeRequest redReq
-        return ()
+        void $ makeRequest redReq
+
 
 -- | Send a PUT request to the given 'EndPoint' along with any passed
 -- parameters
@@ -102,9 +108,9 @@ putEndPoint ep putData  = do
                                     , ("X-Redmine-API-Key", redAPI config)]
                               , requestBody     = RequestBodyBS . BC.pack $ putData
                               , method          = "PUT"
-                              , responseTimeout  = Nothing }
-        _        <-  makeRequest redReq
-        return ()
+                              }
+        void $ makeRequest redReq
+
 
 -- | Send a Request to a Redmine Instance
 makeRequest :: Request -> Redmine (Response LBC.ByteString)
@@ -112,7 +118,7 @@ makeRequest request = do
         config   <- get
         catch (httpLbs request $ redManager config)
             (\e -> case e :: HttpException of
-                StatusCodeException status _ _ -> lift . lift . lift . left $
+                StatusCodeException status _ _ -> redmineLeft $
                         "Status Code: " ++ show (statusCode status) ++ "\n" ++
                         "Status Message: " ++ show (statusMessage status)
                 _                              -> throwIO e)

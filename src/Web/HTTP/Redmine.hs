@@ -1,4 +1,4 @@
-{-# LANGUAGE OverloadedStrings, FlexibleContexts #-}
+{-# LANGUAGE OverloadedStrings #-}
 {-|
 Module          : Web.HTTP.Redmine
 Description     : An API Library for the Redmine Bug Tracker
@@ -19,6 +19,9 @@ The following actions are currently supported:
 
 * Fetching All Projects
 * Fetching All/Personal Issues
+* Fetching All Issue Statuses
+* Fetching a Specific Issue Status by Name or Id
+* Updating an Issue [TODO: more heavylifting in the library(vs user code)]
 
 
 -}
@@ -28,6 +31,7 @@ module Web.HTTP.Redmine
           Redmine
         , runRedmine
         , defaultRedmineConfig
+        , redmineLeft
         -- * Redmine Types
         , ProjectId
         , Project(..)
@@ -39,19 +43,24 @@ module Web.HTTP.Redmine
         -- ** API-related Types
         , RedmineConfig(..)
         -- * Redmine API Functions
+        -- ** Projects
         , getProjects
+        -- ** Issues
         , getAllIssues
         , getMyIssues
         , getIssue
+        , updateIssue
+        -- ** Issue Statuses
+        , getStatuses
         , getStatusFromName
         , getStatusFromId
-        , updateIssue
         -- * Formatting
         , projectsTable
         , projectDetail
         , issuesTable
         ) where
 
+import Data.Aeson                               (FromJSON)
 import qualified Data.ByteString.Char8 as BC    (pack)
 import qualified Data.List as L                 (find)
 
@@ -63,46 +72,51 @@ import Web.HTTP.Redmine.Types
 -- Projects
 -- | Retrieve All the 'Projects'
 getProjects :: Redmine Projects
-getProjects             = getEndPoint GetProjects []
+getProjects                 = getEndPoint GetProjects []
 
 
 -- Issues
--- | Retrieve All 'Issues' of a Project
+-- | Retrieve All 'Issues' of a 'Project'
 getAllIssues :: ProjectId -> Redmine Issues
-getAllIssues projectID  = getEndPoint GetIssues
+getAllIssues projectID      = getEndPoint GetIssues
         [ ("project_id", BC.pack $ show projectID)
         ]
 
--- | Retrieve 'Issues' of a Project Assigned to the User
+-- | Retrieve 'Issues' of a 'Project' assigned to the user
 getMyIssues :: ProjectId -> Redmine Issues
-getMyIssues projectID   = getEndPoint GetIssues
+getMyIssues projectID       = getEndPoint GetIssues
         [ ("project_id", BC.pack $ show projectID)
         , ("assigned_to_id", "me")
         , ("offset", "0")
         , ("limit", "100")
         ]
 
--- | Retrieve an 'Issue'
+-- | Retrieve an 'Issue'.
 getIssue :: IssueId -> Redmine Issue
 getIssue issueID            = getEndPoint (GetIssue issueID) []
 
--- | Update the Due Date of an Issue
+-- | Update an 'Issue'.
 updateIssue ::  IssueId -> String -> Redmine ()
 updateIssue issueID         = putEndPoint $ UpdateIssue issueID
 
 -- Statuses
 -- | Retrieve All Available Statuses
-getStatuses :: Redmine Statuses
-getStatuses = getEndPoint GetStatuses []
+getStatuses :: Redmine [Status]
+getStatuses                 = do (Statuses ss) <- getEndPoint GetStatuses []
+                                 return ss
 
 -- | Retrieve the 'Status' with the given name.
-getStatusFromName :: String              -- ^ The Name of the Status
-                  -> Redmine (Maybe Status)
-getStatusFromName name      = do
-        (Statuses ss) <- getStatuses
-        return $ L.find ((== name) . statusName) ss
+getStatusFromName :: String -> Redmine (Maybe Status)
+getStatusFromName name      = getStatusFromField ((== name) . statusName)
 
+-- | Retrieve the 'Status' with the given id.
 getStatusFromId :: Integer -> Redmine (Maybe Status)
-getStatusFromId i       = do
-        (Statuses ss) <- getStatuses
-        return $ L.find ((== i) . statusId) ss
+getStatusFromId i           = getStatusFromField ((== i) . statusId)
+
+-- | Retrieve the 'Status' using the given predicate.
+getStatusFromField :: (Status -> Bool) -> Redmine (Maybe Status)
+getStatusFromField          = getItemFromField getStatuses
+
+-- | Search a 'Redmine' type using the given predicate.
+getItemFromField :: FromJSON a => Redmine [a] -> (a -> Bool) -> Redmine (Maybe a)
+getItemFromField items p    = fmap (L.find p) items

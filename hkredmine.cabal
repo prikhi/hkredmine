@@ -19,11 +19,11 @@ executable hkredmine
   build-depends:       base >=4.7 && <4.8,
                        aeson,
                        hkredmine,
-                       http-client,
                        transformers,
                        directory,
                        cmdargs,
                        time,
+                       strict,
                        bytestring
 
   ghc-options:         -Wall
