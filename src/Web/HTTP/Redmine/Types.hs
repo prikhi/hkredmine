@@ -18,12 +18,12 @@ module Web.HTTP.Redmine.Types
         , Issues(..)
         , Status(..)
         , Statuses(..)
+        , User(..)
         ) where
 
 import Control.Applicative  ((<$>), (<*>))
 import Data.Aeson           ((.:), (.:?), (.=), (.!=), object,
                              FromJSON, parseJSON, Value(Object))
-
 
 
 -- | API EndPoints
@@ -33,6 +33,7 @@ data EndPoint    =
         | GetIssues
         | GetIssue IssueId
         | UpdateIssue IssueId
+        | GetCurrentUser
         deriving (Show)
 
 -- | A Project's Id is an Integer.
@@ -40,16 +41,33 @@ type ProjectId = Integer
 
 -- | A Redmine Project
 data Project = Project
-        { projectId          :: ProjectId  -- ^ The Project's ID Number
-        , projectName        :: String   -- ^ The Project's Name
-        , projectIdentifier  :: String   -- ^ The Project's Identifier
-        , projectDescription :: String   -- ^ The Project's Description
-        , projectCreated     :: String   -- ^ The Date the Project Was Created
-        , projectUpdated     :: String   -- ^ The Date the Project Was Last Updated
+        { projectId          :: ProjectId   -- ^ The Project's ID Number
+        , projectName        :: String      -- ^ The Project's Name
+        , projectIdentifier  :: String      -- ^ The Project's Identifier
+        , projectDescription :: String      -- ^ The Project's Description
+        , projectCreated     :: String      -- ^ The Date the Project Was Created
+        , projectUpdated     :: String      -- ^ The Date the Project Was Last Updated
         } deriving (Show)
 
 -- | A List of Redmine Projects
 newtype Projects = Projects [Project] deriving (Show)
+
+instance FromJSON Project where
+        parseJSON (Object v) =
+                Project <$> v .: "id"
+                        <*> v .: "name"
+                        <*> v .: "identifier"
+                        <*> v .: "description"
+                        <*> v .: "created_on"
+                        <*> v .: "updated_on"
+        parseJSON _          = fail "Unable to parse Project JSON Object"
+
+instance FromJSON Projects where
+        parseJSON (Object v) = do
+                projectArray <- v .: "projects"
+                projectsList <- mapM parseJSON projectArray
+                return $ Projects projectsList
+        parseJSON _          = fail "Unable to parse Projects JSON Object"
 
 -- | A Issue's Id is an Integer.
 type IssueId = Integer
@@ -75,35 +93,6 @@ data Issue = Issue
 
 -- | A List of Redmine Issues
 newtype Issues = Issues [Issue] deriving (Show)
-
--- | An Issue Status
-data Status = Status
-        { statusId         :: Integer
-        , statusName       :: String
-        , statusIsClosed   :: Bool
-        , statusIsDefault  :: Bool
-        } deriving (Show)
-
--- | A List of Redmine Issues
-newtype Statuses = Statuses [Status] deriving (Show)
-
--- JSON Parsing Instances
-instance FromJSON Project where
-        parseJSON (Object v) =
-                Project <$> v .: "id"
-                        <*> v .: "name"
-                        <*> v .: "identifier"
-                        <*> v .: "description"
-                        <*> v .: "created_on"
-                        <*> v .: "updated_on"
-        parseJSON _          = fail "Unable to parse Project JSON Object"
-
-instance FromJSON Projects where
-        parseJSON (Object v) = do
-                projectArray <- v .: "projects"
-                projectsList <- mapM parseJSON projectArray
-                return $ Projects projectsList
-        parseJSON _          = fail "Unable to parse Projects JSON Object"
 
 instance FromJSON Issue where
         parseJSON (Object r) = do
@@ -149,6 +138,17 @@ instance FromJSON Issues where
                 return $ Issues issuesList
         parseJSON _          = fail "Unable to parse Issues JSON Object"
 
+-- | An Issue Status
+data Status = Status
+        { statusId          :: Integer
+        , statusName        :: String
+        , statusIsClosed    :: Bool
+        , statusIsDefault   :: Bool
+        } deriving (Show)
+
+-- | A List of Redmine Issues
+newtype Statuses = Statuses [Status] deriving (Show)
+
 instance FromJSON Status where
         parseJSON (Object v) =
             Status <$> v .: "id"
@@ -162,5 +162,16 @@ instance FromJSON Statuses where
                 statusArray <- v .: "issue_statuses"
                 statusList  <- mapM parseJSON statusArray
                 return $ Statuses statusList
-        parseJSON _          = fail "Unable to parse Projects JSON Object"
+        parseJSON _          = fail "Unable to parse Statuses JSON Object"
 
+-- | A Redmine User
+data User = User
+        { userId            :: Integer
+        , userLogin         :: String
+        } deriving (Show)
+
+instance FromJSON User where
+        parseJSON (Object r) = do (Object v) <- r .: "user"
+                                  User <$> v .: "id"
+                                       <*> v .: "login"
+        parseJSON _          = fail "Unable to parse User JSON Object."

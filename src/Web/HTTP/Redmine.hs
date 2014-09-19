@@ -40,6 +40,7 @@ module Web.HTTP.Redmine
         , Issue(..)
         , Issues(..)
         , Status(..)
+        , User(..)
         -- ** API-related Types
         , RedmineConfig(..)
         -- * Redmine API Functions
@@ -54,6 +55,8 @@ module Web.HTTP.Redmine
         , getStatuses
         , getStatusFromName
         , getStatusFromId
+        -- ** Misc
+        , getCurrentUser
         -- * Formatting
         , projectsTable
         , projectDetail
@@ -120,3 +123,8 @@ getStatusFromField          = getItemFromField getStatuses
 -- | Search a 'Redmine' type using the given predicate.
 getItemFromField :: FromJSON a => Redmine [a] -> (a -> Bool) -> Redmine (Maybe a)
 getItemFromField items p    = fmap (L.find p) items
+
+-- Users
+-- | Retrieve the Current 'User'.
+getCurrentUser :: Redmine User
+getCurrentUser = getEndPoint GetCurrentUser []

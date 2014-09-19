@@ -132,3 +132,4 @@ makeURL url e         = url ++ endpoint e ++ ".json"
               endpoint GetStatuses      = "issue_statuses"
               endpoint (GetIssue i)     = "issues/" ++ show i
               endpoint (UpdateIssue i)  = "issues/" ++ show i
+              endpoint GetCurrentUser   = "users/current"
