@@ -10,8 +10,6 @@ Portability     : POSIX
 -}
 module Main (main) where
 
-import qualified Data.ByteString.Lazy.Char8 as LC    (unpack)
-
 import Control.Applicative      ((<$>))
 import Control.Monad            (void, when, unless)
 import Control.Monad.IO.Class   (liftIO)
@@ -53,6 +51,8 @@ commandHandler args     = case args of
         ["resume"]                      -> liftIO resumeTimeTracking
         ["stopwork"]                    -> error "Not Yet Implemented"
         ["abort"]                       -> liftIO abortTimeTracking
+        ["watch", issueID]              -> watchIssue $ read issueID
+        ["unwatch", issueID]            -> unwatchIssue $ read issueID
         _                               -> liftIO printUsage
 
 -- | Create the Data Directory & Files for the Application
@@ -69,16 +69,18 @@ printUsage              =
             , "hkredmine command <args> --<param>=<value>"
             , ""
             , "Commands:"
-            , "projects                   -- Print All Projects"
-            , "print project <id>         -- Print the Details of a Specific Project"
-            , "print issues               -- Print All Issues of the Tracked Project"
-            , "print myissues             -- Print Your Issues of the Tracked Project"
-            , "track project <id>         -- Track the Specified Project"
-            , "startwork <id>             -- Start Tracking Time for an Issue"
-            , "pause                      -- Pause Time Tracking"
-            , "resume                     -- Resume Tracking Time(only if paused)"
-            , "stopwork                   -- Stop Tracking Time & Submit an Entry"
-            , "abort                      -- Abort Time Tracking"
+            , "projects                     -- Print All Projects"
+            , "print project <id>           -- Print the Details of a Specific Project"
+            , "print issues                 -- Print All Issues of the Tracked Project"
+            , "print myissues               -- Print Your Issues of the Tracked Project"
+            , "track project <id>           -- Track the Specified Project"
+            , "startwork <id>               -- Start Tracking Time for an Issue"
+            , "pause                        -- Pause Time Tracking"
+            , "resume                       -- Resume Tracking Time(only if paused)"
+            , "stopwork                     -- Stop Tracking Time & Submit an Entry"
+            , "abort                        -- Abort Time Tracking"
+            , "watch <id>                   -- Watch an Issue"
+            , "unwatch <id>                 -- Unwatch an Issue"
             , ""
             ]
     in mapM_ putStrLn message
@@ -156,13 +158,13 @@ markAsInProgressAndSetStartDate i   = do
             notes        = if changeStatus || setStartDate
                            then "Starting work on this issue." else "" :: String
         today           <- liftIO $ fmap utctDay getCurrentTime
-        let putData      = LC.unpack . encode $ object [ "issue" .= object
-                (concat [ ["status_id" .= (statusId . fromJust $ maybeInProgress)
-                                | changeStatus]
-                        , ["start_date" .= show today
-                                | setStartDate]
-                        , ["notes" .= notes]
-                        ] ) ]
+        let putData      = encode $ object [ "issue" .= object (concat
+                    [ ["status_id" .= (statusId . fromJust $ maybeInProgress)
+                            | changeStatus]
+                    , ["start_date" .= show today
+                            | setStartDate]
+                    , ["notes" .= notes]
+                    ] ) ]
         unless (isJust maybeInProgress)
                (liftIO . putStrLn $ "Issue status is unchanged because we couldn't "
                                  ++ "find an 'In Progress' status.")
@@ -204,3 +206,16 @@ resumeTimeTracking      = do
 abortTimeTracking :: IO ()
 abortTimeTracking       = mapM_ removeAppFile [ "issue", "start_time", "pause_time" ]
                        >> putStrLn "Aborted time tracking."
+
+-- Watching
+-- | Watch an 'Issue' as the current 'User'.
+watchIssue :: IssueId -> Redmine ()
+watchIssue i            = getCurrentUser >>= addWatcher i >>
+                          (liftIO . putStrLn $ "Started watching Issue #" ++
+                                               show i ++ ".")
+
+-- | Unwatch an 'Issue' as the current 'User'.
+unwatchIssue :: IssueId -> Redmine ()
+unwatchIssue i          = getCurrentUser >>= removeWatcher i >>
+                          (liftIO . putStrLn $ "Stopped watching Issue #" ++
+                                               show i ++ ".")

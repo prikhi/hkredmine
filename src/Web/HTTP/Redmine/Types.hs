@@ -34,6 +34,8 @@ data EndPoint    =
         | GetIssue IssueId
         | UpdateIssue IssueId
         | GetCurrentUser
+        | AddWatcher IssueId
+        | RemoveWatcher IssueId Integer
         deriving (Show)
 
 -- | A Project's Id is an Integer.

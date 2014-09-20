@@ -15,10 +15,12 @@ module Web.HTTP.Redmine.Client
         , getEndPoint
         , postEndPoint
         , putEndPoint
+        , deleteEndPoint
         ) where
 
 import qualified Data.ByteString as B
 import qualified Data.ByteString.Char8 as BC
+import qualified Data.ByteString.Lazy as LB
 import qualified Data.ByteString.Lazy.Char8 as LBC
 
 import Control.Exception.Lifted         (catch, throwIO)
@@ -67,55 +69,60 @@ defaultRedmineConfig     = do
 redmineLeft :: String -> Redmine a
 redmineLeft = lift . lift . lift . left
 
+
+-- | A basic Redmine API Request.
+redmineRequest :: EndPoint -> Redmine Request
+redmineRequest ep       = do
+        config      <- get
+        initReq     <- liftIO . parseUrl $ makeURL (redURL config) ep
+        return initReq { requestHeaders = [ ("Content-Type", "application/json")
+                                          , ("X-Redmine-API-Key", redAPI config)
+                                          ] }
+
 -- | Send a GET request to the given 'EndPoint' along with any passed
 -- parameters
 getEndPoint :: FromJSON a =>
                 EndPoint -> [(B.ByteString, B.ByteString)] -> Redmine a
-getEndPoint ep getData = do
-        config      <- get
-        initReq     <- liftIO $ parseUrl $ makeURL (redURL config) ep ++ getParams
-        let redReq  = initReq { requestHeaders =
-                                    [ ("Content-Type", "application/json")
-                                    , ("X-Redmine-API-Key", redAPI config)]
-                              , method         = "GET" }
-        response    <- makeRequest redReq
+getEndPoint ep getData  = do
+        initReq         <- redmineRequest ep
+        let getReq      = initReq { method = "GET"
+                                  , queryString = BC.pack getParams }
+        response        <- makeRequest getReq
         lift . lift . lift . hoistEither . eitherDecode . responseBody $ response
-        where getParams = "?" ++ concatMap (\(a, v) -> "&" ++ BC.unpack a ++
-                                                       "=" ++ BC.unpack v) getData
+        where getParams = concatMap (\(a, v) -> BC.unpack a ++ "=" ++ BC.unpack v)
+                                    getData
 
 -- | Send a POST request to the given 'EndPoint' along with any passed
 -- parameters
-postEndPoint :: EndPoint -> [(B.ByteString, B.ByteString)] -> Redmine ()
+postEndPoint :: EndPoint -> LB.ByteString -> Redmine ()
 postEndPoint ep postData = do
-        config   <- get
-        initReq  <- liftIO $ parseUrl $ makeURL (redURL config) ep
-        let postReq = urlEncodedBody postData initReq
-            redReq  = postReq { requestHeaders =
-                                    [ ("Content-Type", "application/json")
-                                    , ("X-Redmine-API-Key", redAPI config)]
-                              , method         = "POST" }
-        void $ makeRequest redReq
-
+        initReq         <- redmineRequest ep
+        void $ makeRequest initReq
+                { method      = "POST"
+                , requestBody = RequestBodyLBS postData
+                }
 
 -- | Send a PUT request to the given 'EndPoint' along with any passed
 -- parameters
-putEndPoint :: EndPoint -> String -> Redmine ()
-putEndPoint ep putData  = do
-        config   <- get
-        initReq  <- liftIO $ parseUrl $ makeURL (redURL config) ep
-        let redReq  = initReq { requestHeaders  =
-                                    [ ("Content-Type", "application/json")
-                                    , ("X-Redmine-API-Key", redAPI config)]
-                              , requestBody     = RequestBodyBS . BC.pack $ putData
-                              , method          = "PUT"
-                              }
-        void $ makeRequest redReq
+putEndPoint :: EndPoint -> LB.ByteString -> Redmine ()
+putEndPoint ep putData          = do
+        initReq                 <- redmineRequest ep
+        void $ makeRequest initReq
+                { method        = "PUT"
+                , requestBody   = RequestBodyLBS putData
+                }
+
+-- | Send a DELETE request to the given 'EndPoint'.
+deleteEndPoint :: EndPoint -> Redmine ()
+deleteEndPoint ep               = do
+        initReq                 <- redmineRequest ep
+        void $ makeRequest initReq { method   = "DELETE" }
 
 
 -- | Send a Request to a Redmine Instance
 makeRequest :: Request -> Redmine (Response LBC.ByteString)
 makeRequest request = do
-        config   <- get
+        config      <- get
         catch (httpLbs request $ redManager config)
             (\e -> case e :: HttpException of
                 StatusCodeException status _ _ -> redmineLeft $
@@ -126,10 +133,13 @@ makeRequest request = do
 
 -- | Builds the URL for the 'EndPoint'
 makeURL :: String -> EndPoint -> String
-makeURL url e         = url ++ endpoint e ++ ".json"
-        where endpoint GetProjects      = "projects"
-              endpoint GetIssues        = "issues"
-              endpoint GetStatuses      = "issue_statuses"
-              endpoint (GetIssue i)     = "issues/" ++ show i
-              endpoint (UpdateIssue i)  = "issues/" ++ show i
-              endpoint GetCurrentUser   = "users/current"
+makeURL url e       = url ++ endpoint e ++ ".json"
+        where endpoint GetProjects          = "projects"
+              endpoint GetIssues            = "issues"
+              endpoint GetStatuses          = "issue_statuses"
+              endpoint (GetIssue i)         = "issues/" ++ show i
+              endpoint (UpdateIssue i)      = "issues/" ++ show i
+              endpoint GetCurrentUser       = "users/current"
+              endpoint (AddWatcher i)       = "issues/" ++ show i ++ "/watchers"
+              endpoint (RemoveWatcher i u)  = "issues/" ++ show i ++ "/watchers/"
+                                           ++ show u

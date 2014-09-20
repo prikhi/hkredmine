@@ -23,6 +23,9 @@ The following actions are currently supported:
 * Fetching a Specific Issue Status by Name or Id
 * Updating an Issue [TODO: more heavylifting in the library(vs user code)]
 
+This is not intended to be a complete API library, just what is required
+for `hkredmine`. However, it _could_ be a complete API library,
+contributions are welcome...
 
 -}
 module Web.HTTP.Redmine
@@ -57,14 +60,17 @@ module Web.HTTP.Redmine
         , getStatusFromId
         -- ** Misc
         , getCurrentUser
+        , addWatcher
+        , removeWatcher
         -- * Formatting
         , projectsTable
         , projectDetail
         , issuesTable
         ) where
 
-import Data.Aeson                               (FromJSON)
+import Data.Aeson                               (FromJSON, object, (.=), encode)
 import qualified Data.ByteString.Char8 as BC    (pack)
+import qualified Data.ByteString.Lazy as LB     (ByteString)
 import qualified Data.List as L                 (find)
 
 import Web.HTTP.Redmine.Client
@@ -99,7 +105,7 @@ getIssue :: IssueId -> Redmine Issue
 getIssue issueID            = getEndPoint (GetIssue issueID) []
 
 -- | Update an 'Issue'.
-updateIssue ::  IssueId -> String -> Redmine ()
+updateIssue ::  IssueId -> LB.ByteString -> Redmine ()
 updateIssue issueID         = putEndPoint $ UpdateIssue issueID
 
 -- Statuses
@@ -125,6 +131,16 @@ getItemFromField :: FromJSON a => Redmine [a] -> (a -> Bool) -> Redmine (Maybe a
 getItemFromField items p    = fmap (L.find p) items
 
 -- Users
--- | Retrieve the Current 'User'.
+-- | Retrieve the current 'User'.
 getCurrentUser :: Redmine User
 getCurrentUser = getEndPoint GetCurrentUser []
+
+-- Watching
+-- | Add a watcher to an 'Issue'.
+addWatcher :: IssueId -> User -> Redmine ()
+addWatcher i user           = postEndPoint (AddWatcher i) postData
+        where postData      = encode $ object [ "user_id" .= userId user ]
+
+-- | Remove a watcher from an 'Issue'.
+removeWatcher :: IssueId -> User -> Redmine ()
+removeWatcher i user        = deleteEndPoint $ RemoveWatcher i $ userId user
