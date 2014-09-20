@@ -21,7 +21,8 @@ The following actions are currently supported:
 * Fetching All/Personal Issues
 * Fetching All Issue Statuses
 * Fetching a Specific Issue Status by Name or Id
-* Updating an Issue [TODO: more heavylifting in the library(vs user code)]
+* Updating an Issue [TODO: more heavylifting in the library(less user code)]
+* Add/Remove Watchers from Images
 
 This is not intended to be a complete API library, just what is required
 for `hkredmine`. However, it _could_ be a complete API library,
@@ -79,19 +80,19 @@ import Web.HTTP.Redmine.Types
 
 
 -- Projects
--- | Retrieve All the 'Projects'
+-- | Retrieve all 'Projects'.
 getProjects :: Redmine Projects
 getProjects                 = getEndPoint GetProjects []
 
 
 -- Issues
--- | Retrieve All 'Issues' of a 'Project'
+-- | Retrieve all 'Issues' of a 'Project'.
 getAllIssues :: ProjectId -> Redmine Issues
 getAllIssues projectID      = getEndPoint GetIssues
         [ ("project_id", BC.pack $ show projectID)
         ]
 
--- | Retrieve 'Issues' of a 'Project' assigned to the user
+-- | Retrieve 'Issues' of a 'Project' assigned to the user.
 getMyIssues :: ProjectId -> Redmine Issues
 getMyIssues projectID       = getEndPoint GetIssues
         [ ("project_id", BC.pack $ show projectID)
@@ -104,12 +105,13 @@ getMyIssues projectID       = getEndPoint GetIssues
 getIssue :: IssueId -> Redmine Issue
 getIssue issueID            = getEndPoint (GetIssue issueID) []
 
--- | Update an 'Issue'.
+-- | Update an 'Issue'. Currently, you must manually create the request's
+-- JSON object.
 updateIssue ::  IssueId -> LB.ByteString -> Redmine ()
 updateIssue issueID         = putEndPoint $ UpdateIssue issueID
 
 -- Statuses
--- | Retrieve All Available Statuses
+-- | Retrieve all available statuses.
 getStatuses :: Redmine [Status]
 getStatuses                 = do (Statuses ss) <- getEndPoint GetStatuses []
                                  return ss
@@ -133,7 +135,7 @@ getItemFromField items p    = fmap (L.find p) items
 -- Users
 -- | Retrieve the current 'User'.
 getCurrentUser :: Redmine User
-getCurrentUser = getEndPoint GetCurrentUser []
+getCurrentUser              = getEndPoint GetCurrentUser []
 
 -- Watching
 -- | Add a watcher to an 'Issue'.
