@@ -10,10 +10,13 @@ Portability     : POSIX
 -}
 module Main (main) where
 
+import qualified Data.List as L
+
 import Control.Applicative      ((<$>))
 import Control.Monad            (void, when, unless)
 import Control.Monad.IO.Class   (liftIO)
 import Data.Aeson               ((.=), object, encode)
+import Data.Function            (on)
 import Data.Time.Clock          (getCurrentTime, utctDay)
 import Data.Time.Clock.POSIX    (getPOSIXTime)
 import Data.Maybe               (fromJust, isJust, isNothing)
@@ -53,6 +56,9 @@ commandHandler args     = case args of
         ["abort"]                       -> liftIO abortTimeTracking
         ["watch", issueID]              -> watchIssue $ read issueID
         ["unwatch", issueID]            -> unwatchIssue $ read issueID
+        ["versions", projectIdent]      -> printVersions projectIdent
+        ["version", versionID]          -> printVersion $ read versionID
+        ["nextversion", projectIdent]   -> printNextVersion projectIdent
         _                               -> liftIO printUsage
 
 -- | Create the Data Directory & Files for the Application
@@ -63,24 +69,40 @@ initializeApp           = getAppDir >>= createDirectoryIfMissing True
 printUsage :: IO ()
 printUsage              =
     let message         =
-            [ "HKRedmine - Redmine CLI Client"
+            [ ""
+            , "HKRedmine - Redmine CLI Client"
+            , ""
             , ""
             , "Usage:"
             , "hkredmine command <args> --<param>=<value>"
             , ""
+            , ""
             , "Commands:"
-            , "projects                     -- Print All Projects"
-            , "print project <id>           -- Print the Details of a Specific Project"
-            , "print issues                 -- Print All Issues of the Tracked Project"
-            , "print myissues               -- Print Your Issues of the Tracked Project"
-            , "track project <id>           -- Track the Specified Project"
-            , "startwork <id>               -- Start Tracking Time for an Issue"
-            , "pause                        -- Pause Time Tracking"
-            , "resume                       -- Resume Tracking Time(only if paused)"
-            , "stopwork                     -- Stop Tracking Time & Submit an Entry"
-            , "abort                        -- Abort Time Tracking"
-            , "watch <id>                   -- Watch an Issue"
-            , "unwatch <id>                 -- Unwatch an Issue"
+            , ""
+            , "-- Projects"
+            , "projects                         -- Print All Projects"
+            , "print project <project_ident>    -- Print the Details of a Specific Project"
+            , ""
+            , "-- Issues"
+            , "print issues                     -- Print All Issues of the Tracked Project"
+            , "print myissues                   -- Print Your Issues of the Tracked Project"
+            , "track project <project_ident>    -- Track the Specified Project"
+            , ""
+            , "-- Time Tracking"
+            , "startwork <issue_id>             -- Start Tracking Time for an Issue"
+            , "pause                            -- Pause Time Tracking"
+            , "resume                           -- Resume Tracking Time(only if paused)"
+            , "stopwork                         -- Stop Tracking Time & Submit an Entry"
+            , "abort                            -- Abort Time Tracking"
+            , ""
+            , "-- Watching"
+            , "watch <issue_id>                 -- Watch an Issue"
+            , "unwatch <issue_id>               -- Unwatch an Issue"
+            , ""
+            , "-- Versions"
+            , "versions <project_ident>         -- Print All of a Project's Versions"
+            , "version <version_id>             -- Print a Version"
+            , "nextversion <project_ident>      -- Print a Project's Next Due Version"
             , ""
             ]
     in mapM_ putStrLn message
@@ -89,34 +111,57 @@ printUsage              =
 -- Displaying Data
 -- | Print All Projects
 printProjects :: Redmine ()
-printProjects           = do Projects ps <- getProjects
-                             liftIO . putStrLn . projectsTable $ ps
+printProjects           = getProjects >>= liftIO . putStrLn . projectsTable
 
--- | Print A Single Project
+-- | Print A Single 'Project'.
 printProject :: ProjectId -> Redmine ()
 printProject projectID  = do
-        Projects ps <- getProjects
+        ps <- getProjects
         void . liftIO . sequence $ map (\p -> when (projectId p == projectID)
                                               $ putStrLn . projectDetail $ p) ps
 
----- | Print All Issues of a Project
+-- | Print All Issues of a 'Project'.
 printIssues :: Redmine ()
 printIssues             = do
-        projectID <- liftIO getTrackedProject
-        Issues is <- getAllIssues projectID
-        liftIO . putStrLn . issuesTable $ is
+        projectID   <- liftIO getTrackedProject
+        issues      <- getProjectsIssues projectID []
+        liftIO . putStrLn . issuesTable $ issues
 
+-- | Print A 'Version' and it's Issues.
+printVersion :: VersionId -> Redmine ()
+printVersion v          = do
+        version <- getVersion v
+        let pID = versionProjectId version
+        issues  <- getVersionsIssues pID version
+        liftIO $ putStrLn (versionDetail version) >> putStrLn "" >>
+                 putStrLn "Issues:" >> putStrLn (issuesTable issues)
 
--- Project/Issue/Time Tracking
+-- | Print a table showing all 'Versions' of a 'Project'.
+printVersions :: ProjectIdent -> Redmine ()
+printVersions pIdent    = do
+        versions <- getProjectFromIdent pIdent >>= getVersions . projectId
+        let sortedVs = L.sortBy (flip compare `on` versionDueDate) versions
+        liftIO . putStrLn . versionTable $ sortedVs
+
+-- | Print the 'Version' that is next due for a 'Project'.
+printNextVersion :: ProjectIdent -> Redmine ()
+printNextVersion pIdent = do
+        maybeVersion    <- getProjectFromIdent pIdent >>=
+                           getNextVersionDue . projectId
+        case maybeVersion of
+            Nothing     -> redmineLeft "No valid version found."
+            Just v      -> printVersion $ versionId v
+
 
 -- Project Tracking
 -- | Track a Project by writing it's ID to a File
 trackProject :: ProjectId -> IO ()
-trackProject projectID  = writeAppFile "project" $ show projectID
+trackProject            = writeAppFile "project" . show
 
 -- | Retrieve the currently tracked Project
 getTrackedProject :: IO ProjectId
 getTrackedProject       = read <$> readAppFile "project"
+
 
 -- Issue Tracking
 -- | Track an Issue by writing it's ID to a File
@@ -126,6 +171,7 @@ trackIssue issueID      = writeAppFile "issue" $ show issueID
 -- | Retrieve the currently tracked Issue
 getTrackedIssue :: IO IssueId
 getTrackedIssue         = read <$> readAppFile "issue"
+
 
 -- Time Tracking
 -- | Initiate time tracking for an 'Issue' by writing the current POSIX
@@ -206,6 +252,7 @@ resumeTimeTracking      = do
 abortTimeTracking :: IO ()
 abortTimeTracking       = mapM_ removeAppFile [ "issue", "start_time", "pause_time" ]
                        >> putStrLn "Aborted time tracking."
+
 
 -- Watching
 -- | Watch an 'Issue' as the current 'User'.

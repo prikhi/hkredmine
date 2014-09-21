@@ -86,11 +86,11 @@ getEndPoint :: FromJSON a =>
 getEndPoint ep getData  = do
         initReq         <- redmineRequest ep
         let getReq      = initReq { method = "GET"
-                                  , queryString = BC.pack getParams }
+                                  , queryString = getParams }
         response        <- makeRequest getReq
         lift . lift . lift . hoistEither . eitherDecode . responseBody $ response
-        where getParams = concatMap (\(a, v) -> BC.unpack a ++ "=" ++ BC.unpack v)
-                                    getData
+        where getParams = BC.concat $ map (\(a, v) -> BC.concat ["&", a, "=", v])
+                                          getData
 
 -- | Send a POST request to the given 'EndPoint' along with any passed
 -- parameters
@@ -134,12 +134,15 @@ makeRequest request = do
 -- | Builds the URL for the 'EndPoint'
 makeURL :: String -> EndPoint -> String
 makeURL url e       = url ++ endpoint e ++ ".json"
-        where endpoint GetProjects          = "projects"
-              endpoint GetIssues            = "issues"
-              endpoint GetStatuses          = "issue_statuses"
-              endpoint (GetIssue i)         = "issues/" ++ show i
-              endpoint (UpdateIssue i)      = "issues/" ++ show i
-              endpoint GetCurrentUser       = "users/current"
-              endpoint (AddWatcher i)       = "issues/" ++ show i ++ "/watchers"
-              endpoint (RemoveWatcher i u)  = "issues/" ++ show i ++ "/watchers/"
-                                           ++ show u
+        where endpoint GetProjects              = "projects"
+              endpoint GetIssues                = "issues"
+              endpoint (GetProjectsIssues n)    = "projects/" ++ show n ++ "/issues"
+              endpoint GetStatuses              = "issue_statuses"
+              endpoint (GetIssue i)             = "issues/" ++ show i
+              endpoint (UpdateIssue i)          = "issues/" ++ show i
+              endpoint GetCurrentUser           = "users/current"
+              endpoint (AddWatcher i)           = "issues/" ++ show i ++ "/watchers"
+              endpoint (RemoveWatcher i u)      = "issues/" ++ show i ++ "/watchers/"
+                                                ++ show u
+              endpoint (GetVersion v)           = "versions/" ++ show v
+              endpoint (GetVersions n)          = "projects/" ++ show n ++ "/versions"

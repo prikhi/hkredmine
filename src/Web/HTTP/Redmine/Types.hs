@@ -9,46 +9,70 @@
 -
 -}
 module Web.HTTP.Redmine.Types
-        ( EndPoint(..)
+        ( IssueFilter
+        , EndPoint(..)
         , ProjectId
+        , ProjectIdent
+        , IssueId
+        , VersionId
         , Project(..)
         , Projects(..)
-        , IssueId
         , Issue(..)
         , Issues(..)
         , Status(..)
         , Statuses(..)
         , User(..)
+        , Version(..)
+        , Versions(..)
         ) where
 
 import Control.Applicative  ((<$>), (<*>))
 import Data.Aeson           ((.:), (.:?), (.=), (.!=), object,
                              FromJSON, parseJSON, Value(Object))
 
+import qualified Data.Aeson.Types as AT   (Parser, Object)
+import qualified Data.ByteString as B
+import qualified Data.Text as T
+
+
+-- | An IssueFilter is a list of parameters and values.
+type IssueFilter = [(B.ByteString, B.ByteString)]
+
 
 -- | API EndPoints
 data EndPoint    =
           GetProjects
         | GetStatuses
+        | GetCurrentUser
+        | GetVersion VersionId
+        | GetVersions ProjectId
         | GetIssues
+        | GetProjectsIssues ProjectId
         | GetIssue IssueId
         | UpdateIssue IssueId
-        | GetCurrentUser
         | AddWatcher IssueId
         | RemoveWatcher IssueId Integer
         deriving (Show)
 
+-- ID Values
 -- | A Project's Id is an Integer.
-type ProjectId = Integer
+type ProjectId      = Integer
+-- | A Project's Identifier is a String.
+type ProjectIdent   = String
+-- | An Issue's Id is an Integer.
+type IssueId        = Integer
+-- | A Version's Id is an Integer.
+type VersionId      = Integer
+
 
 -- | A Redmine Project
 data Project = Project
-        { projectId          :: ProjectId   -- ^ The Project's ID Number
-        , projectName        :: String      -- ^ The Project's Name
-        , projectIdentifier  :: String      -- ^ The Project's Identifier
-        , projectDescription :: String      -- ^ The Project's Description
-        , projectCreated     :: String      -- ^ The Date the Project Was Created
-        , projectUpdated     :: String      -- ^ The Date the Project Was Last Updated
+        { projectId          :: ProjectId       -- ^ The Project's ID Number
+        , projectName        :: String          -- ^ The Project's Name
+        , projectIdentifier  :: ProjectIdent    -- ^ The Project's Identifier
+        , projectDescription :: String          -- ^ The Project's Description
+        , projectCreated     :: String          -- ^ The Date the Project Was Created
+        , projectUpdated     :: String          -- ^ The Date the Project Was Last Updated
         } deriving (Show)
 
 -- | A List of Redmine Projects
@@ -70,9 +94,6 @@ instance FromJSON Projects where
                 projectsList <- mapM parseJSON projectArray
                 return $ Projects projectsList
         parseJSON _          = fail "Unable to parse Projects JSON Object"
-
--- | A Issue's Id is an Integer.
-type IssueId = Integer
 
 -- | A Redmine Issue
 data Issue = Issue
@@ -114,18 +135,6 @@ instance FromJSON Issue where
                       <*> v .: "updated_on"
                       <*> v .:? "start_date"
                       <*> v .:? "due_date"
-                where
-                      -- Retrieve the 'name' attribute of an Object nested
-                      -- in an Object.
-                      obj `grabName` attr      = obj .: attr >>=
-                                            \(Object o) -> o .: "name"
-                      -- 'grabName' with optional attributes
-                      obj `maybeGrabName` attr = do
-                                            attrObj <- obj .:? attr
-                                            case attrObj of
-                                                Nothing         -> return Nothing
-                                                Just (Object o) -> fmap Just $ o .: "name"
-                                                Just _          -> return Nothing
         parseJSON _          = fail "Unable to parse Issue JSON Object"
 
 instance FromJSON Issues where
@@ -177,3 +186,56 @@ instance FromJSON User where
                                   User <$> v .: "id"
                                        <*> v .: "login"
         parseJSON _          = fail "Unable to parse User JSON Object."
+
+-- | A Version
+data Version = Version
+        { versionId             :: VersionId
+        , versionProjectId      :: ProjectId
+        , versionName           :: String
+        , versionDescription    :: String
+        , versionDueDate        :: Maybe String
+        , versionStatus         :: String
+        } deriving (Show)
+
+-- | A List of Redmine Versions
+newtype Versions = Versions [Version] deriving (Show)
+
+instance FromJSON Version where
+        parseJSON (Object r) = do
+            Object v <- r .: "version"
+            Version <$> v .: "id"
+                    <*> v `grabId` "project"
+                    <*> v .: "name"
+                    <*> v .: "description"
+                    <*> v .:? "due_date"
+                    <*> v .: "status"
+        parseJSON _          = fail "Unable to parse Version JSON Object."
+
+instance FromJSON Versions where
+        parseJSON (Object v) = do
+                versionArray <- v .: "versions"
+                -- Individual versions from a Redmine instance are wrapped
+                -- in an Object with a single "version" key. To parse the
+                -- list we need to emulate this before we parse each
+                -- individual version
+                versionList  <- mapM (\i -> parseJSON $ object ["version" .= Object i])
+                                   versionArray
+                return $ Versions versionList
+        parseJSON _          = fail "Unable to parse Versions JSON Object"
+
+
+-- Utils
+-- | Retrieve the 'name' attribute of an Object nested in an Object.
+grabName :: FromJSON a => AT.Object -> T.Text -> AT.Parser a
+obj `grabName` attr         = obj .: attr >>= \(Object o) -> o .: "name"
+-- | Retrieve the 'id' attribute of an Object nested in an Object.
+grabId :: FromJSON a => AT.Object -> T.Text -> AT.Parser a
+obj `grabId` attr           = obj .: attr >>= \(Object o) -> o .: "id"
+
+-- | 'grabName' for optional attributes
+maybeGrabName :: FromJSON a => AT.Object -> T.Text -> AT.Parser (Maybe a)
+obj `maybeGrabName` attr    = do attrObj <- obj .:? attr
+                                 case attrObj of
+                                     Nothing         -> return Nothing
+                                     Just (Object o) -> fmap Just $ o .: "name"
+                                     Just _          -> return Nothing

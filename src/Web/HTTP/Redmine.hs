@@ -37,42 +37,60 @@ module Web.HTTP.Redmine
         , defaultRedmineConfig
         , redmineLeft
         -- * Redmine Types
+        -- ** ID Types
         , ProjectId
+        , ProjectIdent
+        , IssueId
+        , VersionId
         , Project(..)
         , Projects(..)
-        , IssueId
         , Issue(..)
         , Issues(..)
         , Status(..)
         , User(..)
+        , Version(..)
         -- ** API-related Types
         , RedmineConfig(..)
         -- * Redmine API Functions
         -- ** Projects
         , getProjects
+        , getProjectFromIdent
         -- ** Issues
         , getAllIssues
         , getMyIssues
+        , getProjectsIssues
+        , getVersionsIssues
         , getIssue
         , updateIssue
         -- ** Issue Statuses
         , getStatuses
         , getStatusFromName
         , getStatusFromId
+        -- ** Versions
+        , getVersions
+        , getVersion
+        , getNextVersionDue
         -- ** Misc
         , getCurrentUser
         , addWatcher
         , removeWatcher
         -- * Formatting
-        , projectsTable
         , projectDetail
+        , versionDetail
+        , projectsTable
         , issuesTable
+        , versionTable
         ) where
 
-import Data.Aeson                               (FromJSON, object, (.=), encode)
 import qualified Data.ByteString.Char8 as BC    (pack)
 import qualified Data.ByteString.Lazy as LB     (ByteString)
-import qualified Data.List as L                 (find)
+import qualified Data.List as L                 (find, sortBy)
+
+import Control.Monad                (when)
+import Data.Aeson                   (FromJSON, object, (.=), encode)
+import Data.Function                (on)
+import Data.Maybe                   (isJust, isNothing, fromJust)
+import Safe                         (headMay)
 
 import Web.HTTP.Redmine.Client
 import Web.HTTP.Redmine.Format
@@ -81,25 +99,45 @@ import Web.HTTP.Redmine.Types
 
 -- Projects
 -- | Retrieve all 'Projects'.
-getProjects :: Redmine Projects
-getProjects                 = getEndPoint GetProjects []
+getProjects :: Redmine [Project]
+getProjects                 = do Projects ps <- getEndPoint GetProjects []
+                                 return ps
+
+-- | Attempt to retrieve a 'Project'  from a given 'ProjedtIdent'. String
+-- versions of a 'ProjectId' are also accepted.
+getProjectFromIdent :: ProjectIdent -> Redmine Project
+getProjectFromIdent pIdent = do
+        maybeProject <- getItemFromField getProjects
+                                         (\p -> pIdent `elem` [ projectIdentifier p
+                                                              , show $ projectId p])
+        when (isNothing maybeProject) $ redmineLeft "Not a valid Project Identifier."
+        return $ fromJust maybeProject
 
 
 -- Issues
--- | Retrieve all 'Issues' of a 'Project'.
-getAllIssues :: ProjectId -> Redmine Issues
-getAllIssues projectID      = getEndPoint GetIssues
-        [ ("project_id", BC.pack $ show projectID)
-        ]
+-- | Retrieve all 'Issues'.
+getAllIssues :: IssueFilter -> Redmine [Issue]
+getAllIssues f              = do
+        Issues is <- getEndPoint GetIssues $ [ ("offset", "0")
+                                            , ("limit", "100")
+                                            ] ++ f
+        return is
 
 -- | Retrieve 'Issues' of a 'Project' assigned to the user.
-getMyIssues :: ProjectId -> Redmine Issues
-getMyIssues projectID       = getEndPoint GetIssues
+getMyIssues :: ProjectId -> Redmine [Issue]
+getMyIssues projectID       = getAllIssues
         [ ("project_id", BC.pack $ show projectID)
         , ("assigned_to_id", "me")
-        , ("offset", "0")
-        , ("limit", "100")
         ]
+
+-- | Retrieve all 'Issues' of a 'Project'
+getProjectsIssues :: ProjectId -> IssueFilter -> Redmine [Issue]
+getProjectsIssues pID f     = do
+        Issues is <- getEndPoint (GetProjectsIssues pID) $
+                            [ ("offset", "0")
+                            , ("limit", "100")
+                            ] ++ f
+        return is
 
 -- | Retrieve an 'Issue'.
 getIssue :: IssueId -> Redmine Issue
@@ -109,6 +147,7 @@ getIssue issueID            = getEndPoint (GetIssue issueID) []
 -- JSON object.
 updateIssue ::  IssueId -> LB.ByteString -> Redmine ()
 updateIssue issueID         = putEndPoint $ UpdateIssue issueID
+
 
 -- Statuses
 -- | Retrieve all available statuses.
@@ -132,10 +171,12 @@ getStatusFromField          = getItemFromField getStatuses
 getItemFromField :: FromJSON a => Redmine [a] -> (a -> Bool) -> Redmine (Maybe a)
 getItemFromField items p    = fmap (L.find p) items
 
+
 -- Users
 -- | Retrieve the current 'User'.
 getCurrentUser :: Redmine User
 getCurrentUser              = getEndPoint GetCurrentUser []
+
 
 -- Watching
 -- | Add a watcher to an 'Issue'.
@@ -146,3 +187,28 @@ addWatcher i user           = postEndPoint (AddWatcher i) postData
 -- | Remove a watcher from an 'Issue'.
 removeWatcher :: IssueId -> User -> Redmine ()
 removeWatcher i user        = deleteEndPoint $ RemoveWatcher i $ userId user
+
+
+-- Versions
+-- | Retrieve all 'Versions' of a 'Project' from the 'projectId'.
+getVersions :: ProjectId -> Redmine [Version]
+getVersions p               = do Versions vs <- getEndPoint (GetVersions p) []
+                                 return vs
+
+-- | Retrieve a 'Version' from it's id.
+getVersion :: VersionId -> Redmine Version
+getVersion v                = getEndPoint (GetVersion v) []
+
+-- | Retrieve all 'Issues' of a 'Version'.
+getVersionsIssues :: ProjectId -> Version -> Redmine [Issue]
+getVersionsIssues pID v     = getProjectsIssues pID
+        [ ("fixed_version_id", BC.pack . show $ versionId v) ]
+
+-- | Retrieve the next open 'Version' of a 'Project' with the soonest
+-- 'versionDueDate'.
+getNextVersionDue :: ProjectId -> Redmine (Maybe Version)
+getNextVersionDue p         = do
+        vs  <- getVersions p
+        return . headMay . L.sortBy (compare `on` versionDueDate)
+               . filter ((== "open") . versionStatus)
+               . filter (isJust . versionDueDate) $ vs
