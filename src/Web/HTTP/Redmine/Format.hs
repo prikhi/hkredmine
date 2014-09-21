@@ -22,8 +22,8 @@ import Web.HTTP.Redmine.Types
 -- & Updated Columns
 projectsTable :: [Project] -> String
 projectsTable = showTable [ ColDesc center "ID" left (show . projectId)
-                          , ColDesc center "Name" left projectName
                           , ColDesc center "Identifier" left projectIdentifier
+                          , ColDesc center "Name" left projectName
                           , ColDesc center "Description" left (takeWhile (/= '\r') . projectDescription)
                           , ColDesc center "Updated" left (takeWhile (/= 'T') . projectUpdated)
                           ]

@@ -13,7 +13,7 @@ module Main (main) where
 import qualified Data.List as L
 
 import Control.Applicative      ((<$>))
-import Control.Monad            (void, when, unless)
+import Control.Monad            (when, unless)
 import Control.Monad.IO.Class   (liftIO)
 import Data.Aeson               ((.=), object, encode)
 import Data.Function            (on)
@@ -45,10 +45,9 @@ main                    = do
 commandHandler :: [String] -> Redmine ()
 commandHandler args     = case args of
         ["projects"]                    -> printProjects
-        ["print", "project", projectID] -> printProject $ read projectID
-        ["print", "issues"]             -> printIssues
+        ["project", projectIdent]       -> printProject projectIdent
+        ["issues", projectIdent]        -> printProjectsIssues projectIdent
         ["details", _      ]            -> error "Not Yet Implemented"
-        ["track", "project", projectID] -> liftIO . trackProject $ read projectID
         ["startwork", issueID]          -> startTimeTracking $ read issueID
         ["pause"]                       -> liftIO pauseTimeTracking
         ["resume"]                      -> liftIO resumeTimeTracking
@@ -81,12 +80,11 @@ printUsage              =
             , ""
             , "-- Projects"
             , "projects                         -- Print All Projects"
-            , "print project <project_ident>    -- Print the Details of a Specific Project"
+            , "project <project_ident>          -- Print the Details of a Specific Project"
             , ""
             , "-- Issues"
-            , "print issues                     -- Print All Issues of the Tracked Project"
-            , "print myissues                   -- Print Your Issues of the Tracked Project"
-            , "track project <project_ident>    -- Track the Specified Project"
+            , "issues <project_ident>           -- Print All Issues of the Tracked Project"
+            , "myissues <project_ident>         -- Print Your Issues of the Tracked Project"
             , ""
             , "-- Time Tracking"
             , "startwork <issue_id>             -- Start Tracking Time for an Issue"
@@ -114,17 +112,15 @@ printProjects :: Redmine ()
 printProjects           = getProjects >>= liftIO . putStrLn . projectsTable
 
 -- | Print A Single 'Project'.
-printProject :: ProjectId -> Redmine ()
-printProject projectID  = do
-        ps <- getProjects
-        void . liftIO . sequence $ map (\p -> when (projectId p == projectID)
-                                              $ putStrLn . projectDetail $ p) ps
+printProject :: ProjectIdent -> Redmine ()
+printProject pIdent     = getProjectFromIdent pIdent >>=
+                          liftIO . putStrLn . projectDetail
 
 -- | Print All Issues of a 'Project'.
-printIssues :: Redmine ()
-printIssues             = do
-        projectID   <- liftIO getTrackedProject
-        issues      <- getProjectsIssues projectID []
+printProjectsIssues :: ProjectIdent -> Redmine ()
+printProjectsIssues pIdent      = do
+        proj        <- getProjectFromIdent pIdent
+        issues      <- getProjectsIssues (projectId proj) []
         liftIO . putStrLn . issuesTable $ issues
 
 -- | Print A 'Version' and it's Issues.
@@ -151,16 +147,6 @@ printNextVersion pIdent = do
         case maybeVersion of
             Nothing     -> redmineLeft "No valid version found."
             Just v      -> printVersion $ versionId v
-
-
--- Project Tracking
--- | Track a Project by writing it's ID to a File
-trackProject :: ProjectId -> IO ()
-trackProject            = writeAppFile "project" . show
-
--- | Retrieve the currently tracked Project
-getTrackedProject :: IO ProjectId
-getTrackedProject       = read <$> readAppFile "project"
 
 
 -- Issue Tracking
