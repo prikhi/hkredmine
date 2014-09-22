@@ -5,8 +5,6 @@ A Redmine CLI client written in Haskell.
 
 This is not a fully featured API client, but one built for a specific workflow.
 
-
-
 Build the documentation:
 
     cabal haddock
@@ -14,7 +12,6 @@ Build the documentation:
 Build and install:
 
     cabal install -j
-
 
 Configuration
 --------------
@@ -53,62 +50,96 @@ You can then switch accounts using the `use` command, like so:
 Usage
 ------
 
-Run `hkredmine` for a listing of available commands and options.
+Run `hkredmine --help` for a listing of available commands and options.
+Run `hkredmine <command> --help` for additional help and avaialble parameters
+for a specific command.
 
-The client is still in the initial development stages, but the proposed
-workflow is similar to the following:
+You can generate bash completion files by passing the ``bash`` argument to the
+``help`` flag:
+
+    hkredmine --help=bash > hkredmine.comp
+    source hkredmine.comp
+
+The following commands are currently available:
+
+    hkredmine [COMMAND] ... [OPTIONS]
+
+    Commands:
+        use          Switch to a different redmine account.
+        [status]     Print the current Account, Issue and Tracked Time.
+        projects     Print all Projects.
+        project      Print the details of a Project.
+    Issues:
+        issues       Print all Issues of a Project.
+        watch        Watch an Issue.
+        unwatch      Unwatch an Issue.
+    Time Tracking:
+        startwork    Start tracking time for an Issue.
+        pause        Pause time tracking.
+        resume       Resume time tracking.
+        abort        Abort time tracking.
+    Versions:
+        versions     Print all of a Project's Versions.
+        version      Print the details of a Version.
+        nextversion  Print the next Version due for a Project.
+
+Workflow
+---------
+
+The client is not yet complete, but the proposed workflow is similar to the
+following:
 
     # Wake up, pick a tracker:
-    hkr use sleepanarchy
+    hkredmine use sleepanarchy
 
     # What am I watching?
-    hkr watched
+    hkredmine watched
 
     # Hmm, nothing interesting. What projects could I work on?
-    hkr projects
+    hkredmine projects
 
     # accounting-app seems cool, lets see the next milestone:
-    hkr nextversion accounting-app --sort=priority --status=New
+    hkredmine nextversion accounting-app --sort=priority --status=New
 
     # OK I found an interesting issue, let's see the details
-    hkr details 154
+    hkredmine details 154
 
     # Looks good, let's mark as "In Progress" and start tracking our
     # time.
-    hkr startwork 154
+    hkredmine startwork 154
 
     # Something came up, we need to stop work and add a time entry
-    hkr stopwork --type=Development --comment="Tested/Implemented X."
+    hkredmine stopwork --type=Development --comment="Tested/Implemented X."
     # And switch trackers and make a new issue
-    hkr use acorn
-    hkr newissue --project=it-computers
+    hkredmine use acorn
+    hkredmine newissue --project=it-computers
 
     # Our editor should open up to let us edit the subject, description,
     # priority, etc. The issue should be created and the details displayed.
 
     # We'll start on the issue
-    hkr startwork 280
+    hkredmine startwork 280
 
     # We notice something out of scope and make a new issue
-    hkr newissue --project=it-computers
+    hkredmine newissue --project=it-computers
     # We'll watch the issue so we remember to come back to it
-    hkr watch 281
+    hkredmine watch 281
 
     # We've finished, let's log our time and close the issue
-    hkr stopwork --type=Support --comment="Help Y with X."
-    hkr update 280 --status=Closed --due="$(date -I)"
+    hkredmine stopwork --type=Support --comment="Help Y with X."
+    hkredmine update 280 --status=Closed --due="$(date -I)"
 
     # Going back to the old issue
-    hkr use sleepanarchy
-    hkr startwork 154
+    hkredmine use sleepanarchy
+    hkredmine startwork 154
 
     # Let's take a little break
-    hkr pause
+    hkredmine pause
 
     # We come back
-    hkr resume
+    hkredmine resume
     # Forgot what we were working on
-    hkr status
+    hkredmine status
     # Fix the issue and mark as resolved.
-    hkr stopwork --type=Development comment="Fixed thing, waiting on confirmation."
-    hkr watch 154
+    hkredmine stopwork --type=Development comment="Fixed thing, waiting on confirmation."
+    hkredmine watch 154

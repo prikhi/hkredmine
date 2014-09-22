@@ -15,7 +15,10 @@ cabal-version:       >=1.10
 
 executable hkredmine
   main-is:             Main.hs
-  other-modules:       Main.Utils
+  other-modules:       Main.Actions,
+                       Main.CLI,
+                       Main.Utils
+
   build-depends:       base >=4.7 && <4.8,
                        aeson,
                        hkredmine,

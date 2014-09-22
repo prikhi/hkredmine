@@ -11,6 +11,7 @@ module Main.Utils
         , removeAppFile
         , readFileOrExit
         , writeTimeFile
+        , getAccount
         ) where
 
 import Prelude hiding (readFile)
@@ -82,3 +83,11 @@ writeTimeFile :: String     -- ^ The File Name
 writeTimeFile fn        = do
         currentTime <- getPOSIXTime
         writeAppFile fn $ show (round currentTime :: Integer)
+
+-- | Retrieve the currently used account if one exists.
+getAccount :: IO (Maybe String)
+getAccount              = do
+        tracking        <- appFileExists "account"
+        if tracking
+            then Just <$> readAppFile "account"
+            else return Nothing
