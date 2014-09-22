@@ -24,6 +24,8 @@ module Web.HTTP.Redmine.Types
         , User(..)
         , Version(..)
         , Versions(..)
+        , Activity(..)
+        , Activities(..)
         ) where
 
 import Control.Applicative  ((<$>), (<*>))
@@ -46,6 +48,8 @@ data EndPoint    =
         | GetCurrentUser
         | GetVersion VersionId
         | GetVersions ProjectId
+        | GetActivites
+        | GetTimeEntries
         | GetIssues
         | GetProjectsIssues ProjectId
         | GetIssue IssueId
@@ -223,6 +227,29 @@ instance FromJSON Versions where
                 return $ Versions versionList
         parseJSON _          = fail "Unable to parse Versions JSON Object"
 
+-- | A Time Entry Activity
+data Activity = Activity
+        { activityId            :: Integer
+        , activityName          :: String
+        , activityIsDefault     :: Bool
+        } deriving (Show)
+
+-- | A List of Time Entry Activities
+newtype Activities = Activities [Activity]
+
+instance FromJSON Activity where
+        parseJSON (Object v) =
+            Activity <$> v .: "id"
+                     <*> v .: "name"
+                     <*> v .:? "is_default" .!= False
+        parseJSON _          = fail "Unable to parse Activity JSON Object."
+
+instance FromJSON Activities where
+        parseJSON (Object v) = do
+                activityArray <- v .: "time_entry_activities"
+                activityList  <- mapM parseJSON activityArray
+                return $ Activities activityList
+        parseJSON _          = fail "Unable to parse Activities JSON Object"
 
 -- Utils
 -- | Retrieve the 'name' attribute of an Object nested in an Object.

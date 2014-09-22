@@ -15,6 +15,7 @@ module Main.Actions
         , printNextVersion
         , switchAccount
         , startTimeTracking
+        , stopTimeTracking
         , pauseTimeTracking
         , resumeTimeTracking
         , abortTimeTracking
@@ -37,8 +38,9 @@ import Data.Time.Clock          (getCurrentTime, utctDay,
 import Data.Time.Clock.POSIX    (getPOSIXTime)
 import Data.Maybe               (fromJust, isJust, isNothing)
 import System.Time.Utils        (renderSecs)
-import System.Exit              (exitFailure, exitSuccess)
+import System.Exit              (exitFailure)
 import System.Directory         (getHomeDirectory)
+import Text.Printf              (printf)
 
 import Web.HTTP.Redmine
 
@@ -155,6 +157,36 @@ startTimeTracking i     = do
                      putStrLn ("Started tracking time for Issue #" ++ show i ++ "."))
           >> markAsInProgressAndSetStartDate i
 
+-- | Stop time tracking for an 'Issue' by calculating the time spent,
+-- prompting for input and submiting the entry.
+stopTimeTracking :: Maybe String -> Maybe String -> Redmine ()
+stopTimeTracking mayActivity mayComment = do
+        timeSpent   <- liftIO getTrackedTime
+        issue       <- liftIO getTrackedIssue
+        activities  <- getActivities
+        let activityNames = map activityName activities
+            activityIds   = map (show . activityId) activities
+            validActivity = (`elem` activityNames ++ activityIds)
+        activity    <- if isJust mayActivity && validActivity (fromJust mayActivity)
+                       then return $ fromJust mayActivity
+                       else liftIO $ getUntilValidWithInfo validActivity
+                                     "Enter a valid activity:"
+                                     ("\nValid Time Entry Activities:":activityNames)
+        comment     <- maybe (liftIO $ putStrLn "\nEnter a short comment: " >> getLine)
+                             return mayComment
+        confirmed   <- liftIO . confirmWithInfo $
+                            [ "\nCreate the following Time Entry?"
+                            , "Activity:\t" ++ activity
+                            , "Comment: \t" ++ comment
+                            , "Hours:   \t" ++ printf "%.2f" (diffTimeToHours timeSpent)
+                            ]
+        timeActivity <- fromJust <$> getActivityFromName activity
+        if   confirmed
+        then addTimeEntry issue timeSpent timeActivity comment >>
+             liftIO (mapM_ removeAppFile [ "issue", "start_time", "pause_time" ]) >>
+             liftIO (putStrLn "The time entry was successfully created.")
+        else redmineLeft "Time entry submission cancelled."
+
 -- | Pause the Time Tracking by writing the current POSIX time to the
 -- `pause_time` file.
 pauseTimeTracking :: IO ()
@@ -162,7 +194,7 @@ pauseTimeTracking       = do
         _               <- readFileOrExit "start_time"
                                 "Can't pause, not currently tracking time."
         paused          <- appFileExists "pause_time"
-        when paused $ putStrLn "Time tracking is already paused." >> exitSuccess
+        when paused $ putStrLn "Time tracking is already paused." >> exitFailure
         _               <- writeTimeFile "pause_time"
         putStrLn "Paused time tracking."
 
@@ -214,6 +246,26 @@ getTrackedTime          = do
         let trackedSecs = if paused then pause_time - start_time
                                     else current_time - start_time
         return $ secondsToDiffTime trackedSecs
+
+
+-- | Write some text then ask for a string until a valid one is given.
+getUntilValidWithInfo :: (String -> Bool) -> String -> [String] -> IO String
+getUntilValidWithInfo p prompt info = mapM_ putStrLn info
+                                   >> untilValid p (putStrLn ("\n" ++ prompt) >>
+                                                    getLine)
+
+-- | Write some text then ask for a confirmation.
+confirmWithInfo :: [String] -> IO Bool
+confirmWithInfo info    = do mapM_ putStrLn info >> putStrLn "\nConfirm(y/n): "
+                             response <- getLine
+                             return $ response `elem` [ "y", "Y", "yes"
+                                                      , "Yes", "YES" ]
+
+-- | Repeat an IO action until the value inside returns True for some
+-- predicate.
+untilValid :: (a -> Bool) -> IO a -> IO a
+untilValid p action     = do result <- action
+                             if p result then return result else untilValid p action
 
 -- | Mark an 'Issue' as "In Progress" if the current 'Status' is the
 -- default status and set the 'issueStartDate' to today if it is unset.

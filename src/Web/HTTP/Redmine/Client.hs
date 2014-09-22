@@ -146,3 +146,5 @@ makeURL url e       = url ++ endpoint e ++ ".json"
                                                 ++ show u
               endpoint (GetVersion v)           = "versions/" ++ show v
               endpoint (GetVersions n)          = "projects/" ++ show n ++ "/versions"
+              endpoint GetActivites             = "enumerations/time_entry_activities"
+              endpoint GetTimeEntries           = "time_entries"

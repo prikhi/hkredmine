@@ -42,11 +42,13 @@ module Web.HTTP.Redmine
         , ProjectIdent
         , IssueId
         , VersionId
+        -- ** Redmine Objects
         , Project(..)
         , Projects(..)
         , Issue(..)
         , Issues(..)
         , Status(..)
+        , Activity(..)
         , User(..)
         , Version(..)
         -- ** API-related Types
@@ -70,6 +72,10 @@ module Web.HTTP.Redmine
         , getVersions
         , getVersion
         , getNextVersionDue
+        -- ** Time Entries
+        , getActivities
+        , getActivityFromName
+        , addTimeEntry
         -- ** Misc
         , getCurrentUser
         , addWatcher
@@ -90,6 +96,7 @@ import Control.Monad                (when)
 import Data.Aeson                   (FromJSON, object, (.=), encode)
 import Data.Function                (on)
 import Data.Maybe                   (isJust, isNothing, fromJust)
+import Data.Time.Clock              (DiffTime)
 import Safe                         (headMay)
 
 import Web.HTTP.Redmine.Client
@@ -170,6 +177,28 @@ getStatusFromField          = getItemFromField getStatuses
 -- | Search a 'Redmine' type using the given predicate.
 getItemFromField :: FromJSON a => Redmine [a] -> (a -> Bool) -> Redmine (Maybe a)
 getItemFromField items p    = fmap (L.find p) items
+
+
+-- Time Entries
+-- | Retrieve a list of all Time Entry Activities.
+getActivities :: Redmine [Activity]
+getActivities               = do (Activities as) <- getEndPoint GetActivites []
+                                 return as
+
+-- | Retrieve a 'Activity' given a 'activityName'
+getActivityFromName :: String -> Redmine (Maybe Activity)
+getActivityFromName name = getItemFromField getActivities ((== name) . activityName)
+
+-- | Submit a new Time Entry.
+addTimeEntry :: IssueId -> DiffTime -> Activity -> String -> Redmine ()
+addTimeEntry i dt a comment = postEndPoint GetTimeEntries postData
+        where hours         = fromIntegral (round dt :: Integer) / 3600.0
+              postData      = encode $ object
+                [ "time_entry" .= object [ "issue_id" .= i
+                                         , "hours" .= (hours :: Double)
+                                         , "activity_id" .= activityId a
+                                         , "comments" .= comment
+                                         ] ]
 
 
 -- Users

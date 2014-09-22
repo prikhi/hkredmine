@@ -12,12 +12,14 @@ module Main.Utils
         , readFileOrExit
         , writeTimeFile
         , getAccount
+        , diffTimeToHours
         ) where
 
 import Prelude hiding (readFile)
 
 import Control.Applicative      ((<$>))
 import Control.Exception        (catch, throwIO)
+import Data.Time.Clock          (DiffTime)
 import Data.Time.Clock.POSIX    (getPOSIXTime)
 import System.Directory         (getAppUserDataDirectory, removeFile,
                                  doesFileExist)
@@ -91,3 +93,7 @@ getAccount              = do
         if tracking
             then Just <$> readAppFile "account"
             else return Nothing
+
+-- | Turn a 'DiffTime' into a Double representing the nubmer of hours.
+diffTimeToHours :: DiffTime -> Double
+diffTimeToHours dt      = fromIntegral (round dt :: Integer) / 3600.0
