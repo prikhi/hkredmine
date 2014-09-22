@@ -13,7 +13,7 @@ module Web.HTTP.Redmine.Format
         ) where
 
 import Data.List    (intercalate)
-import Data.Maybe   (fromMaybe)
+import Data.Maybe   (fromMaybe, fromJust, isJust)
 
 import Web.HTTP.Redmine.FormatTable
 import Web.HTTP.Redmine.Types
@@ -67,18 +67,22 @@ projectDetail p = intercalate "\n"
 -- | Create a string to desiplay the Id, Name, Description and Due Date of
 -- a 'Version'.
 versionDetail :: Version -> String
-versionDetail v = intercalate "\n"
+versionDetail v = intercalate "\n" $
         [ vn
         , horizLine '=' vn
         , ""
         , "ID:      " ++ show (versionId v)
         , "Status:  " ++ versionStatus v
-        , "Due:     " ++ fromMaybe "" (versionDueDate v)
-        , ""
+        ] ++ if isJust (versionDueDate v) then
+        [ "Due:     " ++ fromJust (versionDueDate v)
+        ] else []
+        ++ if vd /= "" then
+        [ ""
         , "Description:"
-        , versionDescription v
-        ]
+        , vd
+        ] else []
         where vn = versionName v
+              vd = versionDescription v
 
 -- | Create a horizontal line the length of another string(+1)
 horizLine :: Char -> String -> String
