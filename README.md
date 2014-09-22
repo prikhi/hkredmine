@@ -75,6 +75,7 @@ The following commands are currently available:
         unwatch      Unwatch an Issue.
     Time Tracking:
         startwork    Start tracking time for an Issue.
+        stopwork     Stop time tracking and submit a time entry.
         pause        Pause time tracking.
         resume       Resume time tracking.
         abort        Abort time tracking.
@@ -82,6 +83,28 @@ The following commands are currently available:
         versions     Print all of a Project's Versions.
         version      Print the details of a Version.
         nextversion  Print the next Version due for a Project.
+
+
+Time Tracking
+--------------
+
+You can initiate time tracking for an Issue by using the `startwork` command:
+
+    hkredmine startwork 154
+
+You can also `pause`, `resume` and `abort` time tracking:
+
+    hkredmine pause
+    hkredmine resume
+    hkredmine abort
+
+When you're ready to submit a new time entry, run the `stopwork` command:
+
+    hkredmine stopwork
+
+You can skip the prompts by passing parameters on the command line:
+
+    hkredmine stopwork --activity=Development --comment="Writing @stopwork@ documentation"
 
 Workflow
 ---------
