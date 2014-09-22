@@ -1,6 +1,6 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-|
-Module          : HKRedmine
+Module          : Main
 Description     : A Redmine CLI Client
 Copyright       : (c) Pavan Rikhi, 2014
 License         : GPL-3
@@ -13,16 +13,20 @@ module Main (main) where
 import qualified Data.List as L
 
 import Control.Applicative      ((<$>))
-import Control.Monad            (when, unless)
+import Control.Monad            (when, unless, join)
+import Control.Monad.Except     (runExceptT)
 import Control.Monad.IO.Class   (liftIO)
 import Data.Aeson               ((.=), object, encode)
+import Data.ConfigFile          (get, emptyCP, readfile, has_section, sections,
+                                 CPErrorData(..))
 import Data.Function            (on)
 import Data.Time.Clock          (getCurrentTime, utctDay)
 import Data.Time.Clock.POSIX    (getPOSIXTime)
 import Data.Maybe               (fromJust, isJust, isNothing)
 import System.Environment       (getArgs)
 import System.Exit              (exitFailure, exitSuccess)
-import System.Directory         (createDirectoryIfMissing, doesFileExist)
+import System.Directory         (createDirectoryIfMissing, doesFileExist,
+                                 getHomeDirectory)
 
 import Web.HTTP.Redmine
 
@@ -31,12 +35,8 @@ import Main.Utils
 -- | Parse Any Passed Arguments to Figure Out What to Do
 main :: IO ()
 main                    = do
-        _               <- initializeApp
+        cfg             <- initializeApp
         args            <- getArgs
-        defCfg          <- defaultRedmineConfig
-        let cfg         = defCfg
-               { redURL = ""
-               , redAPI = "" }
         result          <- runRedmine cfg $ commandHandler args
         case result of
             Right r     -> putStr "OK: " >> print r >> exitSuccess
@@ -44,6 +44,7 @@ main                    = do
 
 commandHandler :: [String] -> Redmine ()
 commandHandler args     = case args of
+        ["use", accountName]            -> liftIO $ switchAccount accountName
         ["projects"]                    -> printProjects
         ["project", projectIdent]       -> printProject projectIdent
         ["issues", projectIdent]        -> printProjectsIssues projectIdent
@@ -60,9 +61,40 @@ commandHandler args     = case args of
         ["nextversion", projectIdent]   -> printNextVersion projectIdent
         _                               -> liftIO printUsage
 
--- | Create the Data Directory & Files for the Application
-initializeApp :: IO ()
-initializeApp           = getAppDir >>= createDirectoryIfMissing True
+-- | Create the data directory for the application, read the config file
+-- and return a 'RedmineConfig'.
+initializeApp :: IO RedmineConfig
+initializeApp           = do
+        appDir  <- getAppDir
+        _       <- createDirectoryIfMissing True appDir
+        getConfig
+
+getConfig :: IO RedmineConfig
+getConfig               = do
+        defCfg  <- defaultRedmineConfig
+        homeDir <- getHomeDirectory
+        let configPath = homeDir ++ "/.hkredminerc"
+        mayAcc  <- getAccount
+        eithCfg <- runExceptT $ do
+            cp  <- join $ liftIO $ readfile emptyCP configPath
+            let acc = if isJust mayAcc && has_section cp (fromJust mayAcc)
+                then fromJust mayAcc
+                else head $ sections cp  ++ ["DEFAULT"]
+            url <- get cp acc "url"
+            key <- get cp acc "apikey"
+            return $ defCfg { redURL = url, redAPI = key }
+        case eithCfg of
+            Right cfg               -> return cfg
+            Left (NoOption o, _)    -> putStrLn ("Could not read " ++ o ++ " Option.")
+                                    >> exitFailure
+            Left (NoSection s, _)   -> putStrLn ("Could not find a " ++ s ++ " Account.")
+                                    >> exitFailure
+            Left (ParseError _, _)  -> putStrLn "Could not parse config file."
+                                    >> exitFailure
+            Left _                  -> putStrLn "Encountered an error reading the config file."
+                                    >> exitFailure
+
+
 
 -- | Print the Program's Usage Text
 printUsage :: IO ()
@@ -77,6 +109,8 @@ printUsage              =
             , ""
             , ""
             , "Commands:"
+            , ""
+            , "use <account>                    -- Switch to a Different Redmine Instance"
             , ""
             , "-- Projects"
             , "projects                         -- Print All Projects"
@@ -148,6 +182,31 @@ printNextVersion pIdent = do
             Nothing     -> redmineLeft "No valid version found."
             Just v      -> printVersion $ versionId v
 
+-- Account Tracking
+-- | Switch the current account used.
+switchAccount :: String -> IO ()
+switchAccount account   = do
+        homeDir <- getHomeDirectory
+        let configPath = homeDir ++ "/.hkredminerc"
+        eithAcc <- runExceptT $ do
+            cp  <- join $ liftIO $ readfile emptyCP configPath
+            return $ has_section cp account
+        case eithAcc of
+            Right b   -> if b then writeAppFile "account" account
+                                >> putStrLn ("Successfully switched to " ++
+                                             account ++ ".")
+                              else exitError "Account not found in config file."
+            Left _    -> exitError "Could not parse config file."
+        where exitError msg = putStrLn msg >> exitFailure
+
+-- | Retrieve the currently used account, or the string  `DEFAULT`
+getAccount :: IO (Maybe String)
+getAccount              = do
+        appDir          <- getAppDir
+        tracking        <- doesFileExist $ appDir ++ "/account"
+        if tracking
+            then Just <$> readAppFile "account"
+            else return Nothing
 
 -- Issue Tracking
 -- | Track an Issue by writing it's ID to a File

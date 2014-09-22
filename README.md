@@ -15,6 +15,41 @@ Build and install:
 
     cabal install -j
 
+
+Configuration
+--------------
+
+`hkredmine` expects a configuration file at `~/.hkredminerc`. It should follow
+the basic `key=value` INI style. Only two values are required, `url` and
+`apikey`:
+
+    # ~/.hkredminerc
+    url = http://redmine.mydomain.com/
+    apikey = "longalphanumericapikey"
+
+Be sure to enclose the apikey in quotes and to include the trailing slash in
+the URL.
+
+Multiple accounts may be used by putting keys under `[AccountName]` headers:
+
+    [account1]
+    url = ...
+    apikey = "..."
+
+    [account2]
+    url = ...
+    apikey = "..."
+
+You can then switch accounts using the `use` command, like so:
+
+    hkredmine use account1
+    hkredmine projects
+    # Projects from account1 tracker are shown
+    hkredmine use account2
+    hkredmine projects
+    # Projects from account2 tracker are shown
+
+
 Usage
 ------
 

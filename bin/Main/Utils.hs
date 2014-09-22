@@ -19,7 +19,7 @@ import Control.Exception        (catch, throwIO)
 import Data.Time.Clock.POSIX    (getPOSIXTime)
 import System.Directory         (getAppUserDataDirectory, removeFile)
 import System.Exit              (exitFailure)
-import System.IO                (openFile, IOMode(..), hClose, hPutStrLn,
+import System.IO                (openFile, IOMode(..), hClose, hPutStr,
                                  hFlush)
 import System.IO.Strict         (readFile)
 import System.IO.Error          (isDoesNotExistError)
@@ -36,7 +36,7 @@ writeAppFile :: String      -- ^ The File Name
 writeAppFile fn content = do
         appDir      <- getAppDir
         fileHandle  <- openFile (appDir ++ fn) WriteMode
-        hPutStrLn fileHandle content
+        hPutStr fileHandle content
         hFlush fileHandle
         hClose fileHandle
 
@@ -72,4 +72,4 @@ writeTimeFile :: String     -- ^ The File Name
               -> IO ()
 writeTimeFile fn        = do
         currentTime <- getPOSIXTime
-        writeAppFile fn $ show (round currentTime :: Integer) ++ "\n"
+        writeAppFile fn $ show (round currentTime :: Integer)

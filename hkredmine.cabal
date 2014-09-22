@@ -24,7 +24,9 @@ executable hkredmine
                        cmdargs,
                        time,
                        strict,
-                       bytestring
+                       bytestring,
+                       ConfigFile,
+                       mtl
 
   ghc-options:         -Wall
   hs-source-dirs:      bin
