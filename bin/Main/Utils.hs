@@ -5,6 +5,7 @@
 -}
 module Main.Utils
         ( getAppDir
+        , appFileExists
         , writeAppFile
         , readAppFile
         , removeAppFile
@@ -17,7 +18,8 @@ import Prelude hiding (readFile)
 import Control.Applicative      ((<$>))
 import Control.Exception        (catch, throwIO)
 import Data.Time.Clock.POSIX    (getPOSIXTime)
-import System.Directory         (getAppUserDataDirectory, removeFile)
+import System.Directory         (getAppUserDataDirectory, removeFile,
+                                 doesFileExist)
 import System.Exit              (exitFailure)
 import System.IO                (openFile, IOMode(..), hClose, hPutStr,
                                  hFlush)
@@ -28,6 +30,13 @@ import System.IO.Error          (isDoesNotExistError)
 -- | Retrieve the App's UserData directory
 getAppDir :: IO FilePath
 getAppDir = (++ "/") <$> getAppUserDataDirectory "hkredmine"
+
+-- | Check whether a File in the App's UserData directory exists.
+appFileExists :: String -> IO Bool
+appFileExists fn        = do
+        appDir      <- getAppDir
+        doesFileExist $ appDir ++ "/" ++ fn
+
 
 -- | Write a string to a file in the Apps's UserData directory.
 writeAppFile :: String      -- ^ The File Name
@@ -49,7 +58,7 @@ readAppFile  fn         = do
 
 -- | Remove a file from the hkredmine UserData directory.
 removeAppFile :: FilePath -> IO ()
-removeAppFile fn = do
+removeAppFile fn        = do
         appDir <- getAppDir
         writeAppFile fn ""        -- Overcoming laziness problems
         removeFile (appDir ++ fn) `catch` handleExists

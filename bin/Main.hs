@@ -20,13 +20,14 @@ import Data.Aeson               ((.=), object, encode)
 import Data.ConfigFile          (get, emptyCP, readfile, has_section, sections,
                                  CPErrorData(..))
 import Data.Function            (on)
-import Data.Time.Clock          (getCurrentTime, utctDay)
+import Data.Time.Clock          (getCurrentTime, utctDay,
+                                 secondsToDiffTime, DiffTime)
 import Data.Time.Clock.POSIX    (getPOSIXTime)
 import Data.Maybe               (fromJust, isJust, isNothing)
+import System.Time.Utils        (renderSecs)
 import System.Environment       (getArgs)
 import System.Exit              (exitFailure, exitSuccess)
-import System.Directory         (createDirectoryIfMissing, doesFileExist,
-                                 getHomeDirectory)
+import System.Directory         (createDirectoryIfMissing, getHomeDirectory)
 
 import Web.HTTP.Redmine
 
@@ -45,6 +46,7 @@ main                    = do
 commandHandler :: [String] -> Redmine ()
 commandHandler args     = case args of
         ["use", accountName]            -> liftIO $ switchAccount accountName
+        ["status"]                      -> liftIO printStatus
         ["projects"]                    -> printProjects
         ["project", projectIdent]       -> printProject projectIdent
         ["issues", projectIdent]        -> printProjectsIssues projectIdent
@@ -69,6 +71,7 @@ initializeApp           = do
         _       <- createDirectoryIfMissing True appDir
         getConfig
 
+-- | Read the User's config file and attempt to generate a 'RedmineConfig'.
 getConfig :: IO RedmineConfig
 getConfig               = do
         defCfg  <- defaultRedmineConfig
@@ -94,8 +97,6 @@ getConfig               = do
             Left _                  -> putStrLn "Encountered an error reading the config file."
                                     >> exitFailure
 
-
-
 -- | Print the Program's Usage Text
 printUsage :: IO ()
 printUsage              =
@@ -110,7 +111,8 @@ printUsage              =
             , ""
             , "Commands:"
             , ""
-            , "use <account>                    -- Switch to a Different Redmine Instance"
+            , "use <account>                    -- Switch to a Different Redmine Account"
+            , "status                           -- Print the Current Account, Issue and Time"
             , ""
             , "-- Projects"
             , "projects                         -- Print All Projects"
@@ -141,6 +143,41 @@ printUsage              =
 
 
 -- Displaying Data
+--
+-- | Print the current account, issue and time, if any.
+printStatus :: IO ()
+printStatus             = do
+        mayAccount  <- getAccount
+        tracking    <- appFileExists "issue"
+        issue       <- if tracking then getTrackedIssue else return 0
+        started     <- appFileExists "start_time"
+        paused      <- appFileExists "pause_time"
+        trackedTime <- if tracking then getTrackedTime else return 0
+        mapM_ putStrLn  $
+            [ "Using account \"" ++ fromJust mayAccount ++ "\"."
+                    | isJust mayAccount ]
+         ++ [ "Currently tracking time for Issue #" ++ show issue ++ "."
+                    | tracking && started && not paused ]
+         ++ [ "Time tracking for Issue #" ++ show issue ++ " is currently paused."
+                    | tracking && started && paused ]
+         ++ [ "You have tracked " ++ renderSecs (round trackedTime) ++ " on this Issue so far."
+                    | tracking ]
+         ++ [ "Not currenlty tracking an issue or an account."
+                    | not tracking && isNothing mayAccount ]
+
+
+-- | Calculate the current amount of time tracked.
+getTrackedTime :: IO DiffTime
+getTrackedTime          = do
+        start_time      <- read <$> readAppFile "start_time"
+        paused          <- appFileExists "pause_time"
+        pause_time      <- if paused then read <$> readAppFile "pause_time" else return 0
+        current_time    <- round <$> getPOSIXTime
+        let trackedSecs = if paused then pause_time - start_time
+                                    else current_time - start_time
+        return $ secondsToDiffTime trackedSecs
+
+
 -- | Print All Projects
 printProjects :: Redmine ()
 printProjects           = getProjects >>= liftIO . putStrLn . projectsTable
@@ -202,8 +239,7 @@ switchAccount account   = do
 -- | Retrieve the currently used account, or the string  `DEFAULT`
 getAccount :: IO (Maybe String)
 getAccount              = do
-        appDir          <- getAppDir
-        tracking        <- doesFileExist $ appDir ++ "/account"
+        tracking        <- appFileExists "account"
         if tracking
             then Just <$> readAppFile "account"
             else return Nothing
@@ -227,8 +263,7 @@ getTrackedIssue         = read <$> readAppFile "issue"
 -- current date(if it's not set).
 startTimeTracking :: IssueId -> Redmine ()
 startTimeTracking i     = do
-        appDir          <- liftIO getAppDir
-        alreadyTracking <- liftIO $ doesFileExist $ appDir ++ "start_time"
+        alreadyTracking <- liftIO $ appFileExists "start_time"
         if   alreadyTracking
         then do trackedID <- liftIO getTrackedIssue
                 redmineLeft $ "Can't start, we're already tracking time for "
@@ -270,8 +305,7 @@ pauseTimeTracking :: IO ()
 pauseTimeTracking       = do
         _               <- readFileOrExit "start_time"
                                 "Can't pause, not currently tracking time."
-        appDir          <- getAppDir
-        paused          <- doesFileExist $ appDir ++ "pause_time"
+        paused          <- appFileExists "pause_time"
         when paused $ putStrLn "Time tracking is already paused." >> exitSuccess
         _               <- writeTimeFile "pause_time"
         putStrLn "Paused time tracking."

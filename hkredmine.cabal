@@ -26,7 +26,8 @@ executable hkredmine
                        strict,
                        bytestring,
                        ConfigFile,
-                       mtl
+                       mtl,
+                       MissingH
 
   ghc-options:         -Wall
   hs-source-dirs:      bin
