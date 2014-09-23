@@ -17,7 +17,7 @@ import qualified Data.ByteString.Char8 as BC    (pack)
 
 import Control.Monad            (when)
 import Control.Monad.IO.Class   (liftIO)
-import Data.Maybe               (isNothing, isJust, fromJust)
+import Data.Maybe               (isNothing, fromJust)
 import System.Console.CmdArgs
 
 import Web.HTTP.Redmine         (Redmine, IssueFilter, redmineLeft)
@@ -28,11 +28,13 @@ import Main.Actions
 data HKRedmine
         = Use           { accountName       :: String }
         | Status        { }
+        | Fields        { }
         | Projects      { }
         | Project       { projectIdent      :: String }
         | Issues        { projectIdent      :: String
                         , trackerIdent      :: String
                         , statusIdent       :: String
+                        , priorityIdent     :: String
                         , assignedTo        :: String
                         , sortByField       :: String
                         , limitTo           :: Integer
@@ -51,24 +53,37 @@ data HKRedmine
          deriving (Show, Data, Typeable)
 
 
-
+-- | Transform the arguements of the Issues mode into an IssueFilter.
 argsToIssueFilter :: HKRedmine -> Redmine IssueFilter
 argsToIssueFilter i@(Issues {}) = do
-        mayTracker <- R.getTrackerFromName $ trackerIdent i
-        when (isNothing mayTracker && trackerIdent i /= "") $
-             redmineLeft "Not a valid Tracker name."
+        filterTracker   <- grabFromName R.getTrackerFromName "Tracker" $ trackerIdent i
+        filterPriority  <- grabFromName R.getPriorityFromName "Priority" $ priorityIdent i
+        filterStatus    <- R.getStatusFromName $ statusIdent i
+        when (isNothing filterStatus && statusIdent i `notElem` ["", "open", "closed", "*"])
+           $ redmineLeft "Not a valid Status name."
         return . map packIt $
             [ ("project_id", projectIdent i)
                     | projectIdent i /= "" ] ++
-            [ ("tracker_id", show . R.trackerId . fromJust $ mayTracker)
-                    | isJust mayTracker ] ++
+            [ ("tracker_id", show . R.trackerId $ filterTracker)
+                    | trackerIdent i /= "" ] ++
+            [ ("status_id", show . R.statusId $ fromJust filterStatus)
+                    | statusIdent i `notElem` ["", "open", "closed", "*"] ] ++
             [ ("status_id", statusIdent i)
-            , ("assigned_to_id", assignedTo i)
-            , ("sort", sortByField i)
+                    | statusIdent i `elem` ["open", "closed", "*"] ] ++
+            [ ("priority_id", show . R.priorityId $ filterPriority)
+                    | priorityIdent i /= "" ] ++
+            [ ("assigned_to_id", assignedTo i)
+                    | assignedTo i /= "" ] ++
+            [ ("sort", sortByField i)
             , ("limit", show $ limitTo i)
             , ("offset", show $ issueOffset i) ]
-        where packIt (s1, s2) = (s1, BC.pack s2)
-argsToIssueFilter _ = error "Tried applying an issue filter to non-issue command."
+        where packIt (s1, s2)   = (s1, BC.pack s2)
+              grabFromName grab item itemName   = do
+                    mayValue    <- grab itemName
+                    when (isNothing mayValue && itemName /= "") $
+                         redmineLeft $ "Not a valid " ++ item ++ " name."
+                    return $ fromJust mayValue
+argsToIssueFilter _ = redmineLeft "Tried applying an issue filter to non-issue command."
 
 
 -- | Route a 'HKRedmine' Mode to a 'Redmine' Action.
@@ -76,6 +91,7 @@ dispatch :: HKRedmine -> Redmine ()
 dispatch m = case m of
         Use a           -> liftIO $ switchAccount a
         Status          -> liftIO printStatus
+        Fields          -> printFields
         Projects        -> printProjects
         Project p       -> printProject p
         i@(Issues {})   -> argsToIssueFilter i >>= printIssues
@@ -94,7 +110,7 @@ dispatch m = case m of
 -- | Available usage modes
 hkredmine :: Annotate Ann
 hkredmine = modes_
-        [ use, status
+        [ use, status, fields
         , projects, project
         , issues
         , startwork, stopwork, pause, resume, abort
@@ -106,8 +122,8 @@ hkredmine = modes_
 
 
 -- | Default options for modes
-use, status, projects, project, issues, startwork, stopwork, pause, resume,
-     abort, watch, unwatch, versions, version, nextversion :: Annotate Ann
+use, status, fields, projects, project, issues, startwork, stopwork, pause,
+     resume, abort, watch, unwatch, versions, version, nextversion :: Annotate Ann
 use = record Use { accountName = def }
     [ accountName := def
                   += argPos 0
@@ -132,6 +148,9 @@ status      = record Status {} []
               += help "Print the current Account, Issue and Tracked Time."
               += auto
 
+fields      = record Fields {} []
+              += help "Print the available field values(Statuses, Priorities, etc.)."
+
 projects    = record Projects {} []
               += help "Print all Projects."
 
@@ -141,13 +160,13 @@ project     = record Project { projectIdent = def }
             ] += help "Print the details of a Project."
 
 issues      = record Issues { projectIdent = def, statusIdent = def
-                            , trackerIdent = def, assignedTo = def
-                            , sortByField = def, limitTo = def
-                            , issueOffset = def }
+                            , trackerIdent = def, priorityIdent = def
+                            , assignedTo = def, sortByField = def
+                            , limitTo = def, issueOffset = def }
             [ projectIdent  := def
                             += typ "PROJECTIDENT"
-                            += name "p"
                             += name "project"
+                            += name "p"
                             += groupname "filter"
                             += explicit
                             += help "A Project's Identifier or ID"
@@ -157,7 +176,7 @@ issues      = record Issues { projectIdent = def, statusIdent = def
                             += name "s"
                             += groupname "filter"
                             += explicit
-                            += help "A Status Name"
+                            += help "A Status Name. open and closed are also valid choices"
             , trackerIdent  := def
                             += typ "TRACKERNAME"
                             += name "tracker"
@@ -165,6 +184,13 @@ issues      = record Issues { projectIdent = def, statusIdent = def
                             += groupname "filter"
                             += explicit
                             += help "A Tracker Name"
+            , priorityIdent := def
+                            += typ "PRIORITYNAME"
+                            += name "priority"
+                            += name "i"
+                            += groupname "filter"
+                            += explicit
+                            += help "A Priority Name"
             , assignedTo    := ""
                             += opt ("me" :: String)
                             += name "userid"
@@ -186,8 +212,9 @@ issues      = record Issues { projectIdent = def, statusIdent = def
                             += explicit
                             += groupname "sort"
                             += help ("Comma-separated columns to sort by. " ++
-                                     "Valid options are \"project\", \"priority\", " ++
-                                     "\"status\", and \"category\"" )
+                                     "Valid options are project, priority, " ++
+                                     "status, category, updated_on and " ++
+                                     "created_on" )
             , limitTo       := 20
                             += typ "INT"
                             += name "limit"
@@ -198,9 +225,13 @@ issues      = record Issues { projectIdent = def, statusIdent = def
                             += help "Limit the number of Issues to show"
             ] += help "Filter and Print Issues."
               += groupname "Issues"
-              += details [ "Example Usage:"
+              += details [ "Run `hkredmine fields` for valid Status, Priority and"
+                         , "Tracker values."
+                         , ""
+                         , "Example Usage:"
                          , "hkredmine issues -u"
                          , "hkredmine issues -n 50 -p accounting-app -S priority"
+                         , "hkredmine issues --status=open -t Bug"
                          ]
 
 startwork   = record StartWork { issueId = def }
@@ -233,6 +264,8 @@ stopwork    = record StopWork { activityType = def, timeComment = def }
                          , "hkredmine stopwork"
                          , "hkredmine stopwork --comment=\"Responding to User Bug Reports\""
                          , "hkredmine stopwork -a Design -c \"Write specs\""
+                         , ""
+                         , "Run `hkredmine fields` to get the available Time Entry Activities."
                          ]
 
 pause       = record Pause {} []

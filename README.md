@@ -5,26 +5,44 @@ A Redmine CLI client written in Haskell.
 
 This is not a fully featured API client, but one built for a specific workflow.
 
-Build the documentation:
+Quickstart
+-----------
 
-    cabal haddock
+1. Clone this repository: `git clone http://bugs.sleepanarchy.com/hkredmine.git`
+2. Install hkredmine: `cd hkredmine; cabal install -j`
+3. Add your Redmine URL to the config file: `echo 'url=http://redmine.yourdomain.com/' > ~/.hkredminerc`
+4. And your API key: `echo 'apikey="longalphanumericstring"' >> ~/.hkredminerc`
+5. List available projects: `hkredmine projects`
+6. List the issues of a project: `hkredmine issues -p <project_identifier>`
+7. List the next version of a project: `hkredmine nextversion <project_identifier>`
+8. Start tracking time on an issue: `hkredmine startwork <issue_id>`
+9. Stop tracking time and create a new time entry: `hkredmine stopwork`
+10. Learn how to use everything else: `hkredmine --help`
+
+Installation
+-------------
 
 Build and install:
 
     cabal install -j
 
+Contributers should build the documentation:
+
+    cabal haddock
+
+
 Configuration
 --------------
 
 `hkredmine` expects a configuration file at `~/.hkredminerc`. It should follow
-the basic `key=value` INI style. Only two values are required, `url` and
+the basic INI `key=value` style. Only two values are required, `url` and
 `apikey`:
 
     # ~/.hkredminerc
     url = http://redmine.mydomain.com/
     apikey = "longalphanumericapikey"
 
-Be sure to enclose the apikey in quotes and to include the trailing slash in
+Be sure to enclose the API key in quotes and to include the trailing slash in
 the URL.
 
 Multiple accounts may be used by putting keys under `[AccountName]` headers:
@@ -51,23 +69,30 @@ Usage
 ------
 
 Run `hkredmine --help` for a listing of available commands and options.
-Run `hkredmine <command> --help` for additional help and avaialble parameters
+Run `hkredmine <command> --help` for additional help and available parameters
 for a specific command.
 
-You can generate bash completion files by passing the ``bash`` argument to the
-``help`` flag:
+You can generate bash completion files by passing the `bash` argument to the
+`help` flag:
 
     hkredmine --help=bash > hkredmine.comp
     source hkredmine.comp
 
-The following commands are currently available:
+These will also work with zsh if you enable `bashcompinit` before sourcing the
+completion file:
 
-    hkredmine [COMMAND] ... [OPTIONS]
+    autoload bashcompinit
+    bashcompinit
+
+    source hkredmine.comp
+
+The following commands are currently available:
 
     Commands:
         use          Switch to a different redmine account.
         [status]     Print the current Account, Issue and Tracked Time.
         projects     Print all Projects.
+        fields       Print the available field values(Statuses, Priorities, etc.).
         project      Print the details of a Project.
     Issues:
         issues       Print all Issues of a Project.
@@ -105,6 +130,7 @@ When you're ready to submit a new time entry, run the `stopwork` command:
 You can skip the prompts by passing parameters on the command line:
 
     hkredmine stopwork --activity=Development --comment="Writing @stopwork@ documentation"
+
 
 Workflow
 ---------
@@ -149,7 +175,7 @@ following:
     hkredmine watch 281
 
     # We've finished, let's log our time and close the issue
-    hkredmine stopwork --type=Support --comment="Help Y with X."
+    hkredmine stopwork --activity=Support --comment="Help Y with X."
     hkredmine update 280 --status=Closed --due="$(date -I)"
 
     # Going back to the old issue
@@ -164,5 +190,5 @@ following:
     # Forgot what we were working on
     hkredmine status
     # Fix the issue and mark as resolved.
-    hkredmine stopwork --type=Development comment="Fixed thing, waiting on confirmation."
+    hkredmine stopwork --activity=Development comment="Fixed thing, waiting on confirmation."
     hkredmine watch 154

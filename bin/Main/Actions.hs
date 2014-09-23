@@ -7,6 +7,7 @@
 
 module Main.Actions
         ( printStatus
+        , printFields
         , printProject
         , printProjects
         , printIssues
@@ -70,6 +71,18 @@ printStatus             = do
          ++ [ "Not currenlty tracking an issue or an account."
                     | not tracking && isNothing mayAccount ]
 
+-- | Print the available Statuses, Trackers, Priorities and Time Entry
+-- Activities.
+printFields :: Redmine ()
+printFields             =
+        getStatuses >>= showFields "Issue Statuses" . map statusName >>
+        getTrackers >>= showFields "Issue Trackers" . map trackerName >>
+        getPriorities >>= showFields "Issue Priorities" . map priorityName >>
+        getActivities >>= showFields "Time Entry Activities" . map activityName
+        where showFields name fields = liftIO
+                                     $ putStrLn (name ++ ":")
+                                    >> mapM_ putStrLn fields
+                                    >> putStrLn ""
 
 -- | Print All Projects
 printProjects :: Redmine ()

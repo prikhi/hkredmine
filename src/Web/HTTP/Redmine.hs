@@ -51,6 +51,7 @@ module Web.HTTP.Redmine
         , Status(..)
         , Activity(..)
         , Tracker(..)
+        , Priority(..)
         , User(..)
         , Version(..)
         -- ** API-related Types
@@ -60,8 +61,6 @@ module Web.HTTP.Redmine
         , getProjects
         , getProjectFromIdent
         -- ** Issues
-        , getAllIssues
-        , getMyIssues
         , getIssues
         , getVersionsIssues
         , getIssue
@@ -81,6 +80,9 @@ module Web.HTTP.Redmine
         , getActivities
         , getActivityFromName
         , addTimeEntry
+        -- ** Priorities
+        , getPriorities
+        , getPriorityFromName
         -- ** Misc
         , getCurrentUser
         , addWatcher
@@ -127,34 +129,16 @@ getProjectFromIdent pIdent = do
 
 
 -- Issues
--- | Retrieve all 'Issues'.
-getAllIssues :: IssueFilter -> Redmine [Issue]
-getAllIssues f              = do
-        Issues is <- getEndPoint GetIssues $ [ ("offset", "0")
-                                            , ("limit", "100")
-                                            ] ++ f
+-- | Retrieve a set of Issues based on an 'IssueFilter'
+getIssues :: IssueFilter -> Redmine [Issue]
+getIssues f                  = do
+        Issues is <- getEndPoint GetIssues f
         return is
-
--- | Retrieve 'Issues' of a 'Project' assigned to the user.
-getMyIssues :: ProjectId -> Redmine [Issue]
-getMyIssues projectID       = getAllIssues
-        [ ("project_id", BC.pack $ show projectID)
-        , ("assigned_to_id", "me")
-        ]
 
 -- | Retrieve all 'Issues' of a 'Project'
 getProjectsIssues :: ProjectId -> IssueFilter -> Redmine [Issue]
 getProjectsIssues pID f     = do
         Issues is <- getEndPoint (GetProjectsIssues pID) f
-        return is
-
--- | Retrieve a set of Issues based on an 'IssueFilter'
-getIssues :: IssueFilter -> Redmine [Issue]
-getIssues f                  = do
-        Issues is <- getEndPoint GetIssues $
-                            [ ("offset", "0")
-                            , ("limit", "100")
-                            ] ++ f
         return is
 
 -- | Retrieve an 'Issue'.
@@ -214,12 +198,25 @@ addTimeEntry i dt a comment = postEndPoint GetTimeEntries postData
 -- Trackers
 -- | Retrieve a list of all Trackers.
 getTrackers :: Redmine [Tracker]
-getTrackers                 = do Trackers ts <- getEndPoint GetTrackers []
+getTrackers                 = do Trackers ts    <- getEndPoint GetTrackers []
                                  return ts
 
 -- | Retrieve a 'Tracker' given it's 'trackerName'.
 getTrackerFromName :: String -> Redmine (Maybe Tracker)
 getTrackerFromName name     = getItemFromField getTrackers ((== name) . trackerName)
+
+
+-- Priorities
+-- | Retrieve a list of all Priorities.
+getPriorities :: Redmine [Priority]
+getPriorities               = do Priorities ps  <- getEndPoint GetPriorities []
+                                 return ps
+
+-- | Retrieve a 'Priority' given it's 'priorityName'.
+getPriorityFromName :: String -> Redmine (Maybe Priority)
+getPriorityFromName name    = getItemFromField getPriorities ((== name) . priorityName)
+
+
 
 -- Users
 -- | Retrieve the current 'User'.

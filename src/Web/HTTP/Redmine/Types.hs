@@ -28,6 +28,8 @@ module Web.HTTP.Redmine.Types
         , Activities(..)
         , Tracker(..)
         , Trackers(..)
+        , Priority(..)
+        , Priorities(..)
         ) where
 
 import Control.Applicative  ((<$>), (<*>))
@@ -53,6 +55,7 @@ data EndPoint    =
         | GetActivites
         | GetTimeEntries
         | GetTrackers
+        | GetPriorities
         | GetIssues
         | GetProjectsIssues ProjectId
         | GetIssue IssueId
@@ -275,6 +278,30 @@ instance FromJSON Trackers where
                 trackerList  <- mapM parseJSON trackerArray
                 return $ Trackers trackerList
         parseJSON _          = fail "Unable to parse Trackers JSON Object"
+
+-- | A Redmine Issue Priority
+data Priority = Priority
+        { priorityId             :: Integer
+        , priorityName           :: String
+        , priorityIsDefault      :: Bool
+        } deriving (Show)
+
+-- | A List of Priorities
+newtype Priorities = Priorities [Priority]
+
+instance FromJSON Priority where
+        parseJSON (Object v) =
+            Priority <$> v .: "id"
+                     <*> v .: "name"
+                     <*> v .:? "is_default" .!= False
+        parseJSON _          = fail "Unable to parse Issue Priority JSON Object."
+
+instance FromJSON Priorities where
+        parseJSON (Object v) = do
+                array       <- v .: "issue_priorities"
+                list        <- mapM parseJSON array
+                return $ Priorities list
+        parseJSON _         = fail "Unable to parse Issue Priorities JSON Object"
 
 -- Utils
 -- | Retrieve the 'name' attribute of an Object nested in an Object.

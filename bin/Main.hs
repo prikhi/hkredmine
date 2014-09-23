@@ -29,8 +29,8 @@ import Main.CLI
 -- | Parse Any Passed Arguments to Figure Out What to Do
 main :: IO ()
 main                    = do
-        cfg             <- initializeApp
         argMode         <- cmdArgs_ hkredmine
+        cfg             <- initializeApp
         let action      = dispatch argMode
         result          <- runRedmine cfg action
         case result of
@@ -41,25 +41,25 @@ main                    = do
 -- and return a 'RedmineConfig'.
 initializeApp :: IO RedmineConfig
 initializeApp           = do
-        appDir  <- getAppDir
-        _       <- createDirectoryIfMissing True appDir
+        appDir          <- getAppDir
+        _               <- createDirectoryIfMissing True appDir
         getConfig
 
 -- | Read the User's config file and attempt to generate a 'RedmineConfig'.
 getConfig :: IO RedmineConfig
 getConfig               = do
-        defCfg  <- defaultRedmineConfig
-        homeDir <- getHomeDirectory
-        let configPath = homeDir ++ "/.hkredminerc"
-        mayAcc  <- getAccount
-        eithCfg <- runExceptT $ do
-            cp  <- join $ liftIO $ readfile emptyCP configPath
-            let acc = if isJust mayAcc && has_section cp (fromJust mayAcc)
-                      then fromJust mayAcc
-                      else head $ sections cp  ++ ["DEFAULT"]
-            url <- get cp acc "url"
-            key <- get cp acc "apikey"
-            return $ defCfg { redURL = url, redAPI = key }
+        defCfg          <- defaultRedmineConfig
+        homeDir         <- getHomeDirectory
+        let configPath  = homeDir ++ "/.hkredminerc"
+        mayAcc          <- getAccount
+        eithCfg         <- runExceptT $ do
+                cp      <- join $ liftIO $ readfile emptyCP configPath
+                let acc = if isJust mayAcc && has_section cp (fromJust mayAcc)
+                          then fromJust mayAcc
+                          else head $ sections cp  ++ ["DEFAULT"]
+                url     <- get cp acc "url"
+                key     <- get cp acc "apikey"
+                return $ defCfg { redURL = url, redAPI = key }
         case eithCfg of
             Right cfg               -> return cfg
             Left (NoOption o, _)    -> putStrLn ("Could not read " ++ o ++ " Option.")
