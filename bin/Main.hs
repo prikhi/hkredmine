@@ -55,8 +55,8 @@ getConfig               = do
         eithCfg <- runExceptT $ do
             cp  <- join $ liftIO $ readfile emptyCP configPath
             let acc = if isJust mayAcc && has_section cp (fromJust mayAcc)
-                then fromJust mayAcc
-                else head $ sections cp  ++ ["DEFAULT"]
+                      then fromJust mayAcc
+                      else head $ sections cp  ++ ["DEFAULT"]
             url <- get cp acc "url"
             key <- get cp acc "apikey"
             return $ defCfg { redURL = url, redAPI = key }

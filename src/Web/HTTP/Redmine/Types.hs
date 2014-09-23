@@ -26,6 +26,8 @@ module Web.HTTP.Redmine.Types
         , Versions(..)
         , Activity(..)
         , Activities(..)
+        , Tracker(..)
+        , Trackers(..)
         ) where
 
 import Control.Applicative  ((<$>), (<*>))
@@ -50,6 +52,7 @@ data EndPoint    =
         | GetVersions ProjectId
         | GetActivites
         | GetTimeEntries
+        | GetTrackers
         | GetIssues
         | GetProjectsIssues ProjectId
         | GetIssue IssueId
@@ -250,6 +253,28 @@ instance FromJSON Activities where
                 activityList  <- mapM parseJSON activityArray
                 return $ Activities activityList
         parseJSON _          = fail "Unable to parse Activities JSON Object"
+
+-- | A Redmine Tracker
+data Tracker = Tracker
+        { trackerId             :: Integer
+        , trackerName           :: String
+        } deriving (Show)
+
+-- | A List of Trackers
+newtype Trackers = Trackers [Tracker]
+
+instance FromJSON Tracker where
+        parseJSON (Object v) =
+            Tracker <$> v .: "id"
+                    <*> v .: "name"
+        parseJSON _          = fail "Unable to parse Tracker JSON Object."
+
+instance FromJSON Trackers where
+        parseJSON (Object v) = do
+                trackerArray <- v .: "trackers"
+                trackerList  <- mapM parseJSON trackerArray
+                return $ Trackers trackerList
+        parseJSON _          = fail "Unable to parse Trackers JSON Object"
 
 -- Utils
 -- | Retrieve the 'name' attribute of an Object nested in an Object.

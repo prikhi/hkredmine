@@ -1,3 +1,4 @@
+{-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE DeriveDataTypeable #-}
 {-|
 -
@@ -10,10 +11,16 @@ module Main.CLI
         , dispatch
         ) where
 
-import System.Console.CmdArgs
-import Control.Monad.IO.Class   (liftIO)
+import qualified Web.HTTP.Redmine as R
+import qualified Data.ByteString.Char8 as BC    (pack)
 
-import Web.HTTP.Redmine         (Redmine)
+
+import Control.Monad            (when)
+import Control.Monad.IO.Class   (liftIO)
+import Data.Maybe               (isNothing, isJust, fromJust)
+import System.Console.CmdArgs
+
+import Web.HTTP.Redmine         (Redmine, IssueFilter, redmineLeft)
 
 import Main.Actions
 
@@ -23,7 +30,13 @@ data HKRedmine
         | Status        { }
         | Projects      { }
         | Project       { projectIdent      :: String }
-        | Issues        { projectIdent      :: String }
+        | Issues        { projectIdent      :: String
+                        , trackerIdent      :: String
+                        , statusIdent       :: String
+                        , assignedTo        :: String
+                        , sortByField       :: String
+                        , limitTo           :: Integer
+                        , issueOffset       :: Integer }
         | StartWork     { issueId           :: Integer }
         | StopWork      { activityType      :: Maybe String
                         , timeComment       :: Maybe String }
@@ -38,6 +51,26 @@ data HKRedmine
          deriving (Show, Data, Typeable)
 
 
+
+argsToIssueFilter :: HKRedmine -> Redmine IssueFilter
+argsToIssueFilter i@(Issues {}) = do
+        mayTracker <- R.getTrackerFromName $ trackerIdent i
+        when (isNothing mayTracker && trackerIdent i /= "") $
+             redmineLeft "Not a valid Tracker name."
+        return . map packIt $
+            [ ("project_id", projectIdent i)
+                    | projectIdent i /= "" ] ++
+            [ ("tracker_id", show . R.trackerId . fromJust $ mayTracker)
+                    | isJust mayTracker ] ++
+            [ ("status_id", statusIdent i)
+            , ("assigned_to_id", assignedTo i)
+            , ("sort", sortByField i)
+            , ("limit", show $ limitTo i)
+            , ("offset", show $ issueOffset i) ]
+        where packIt (s1, s2) = (s1, BC.pack s2)
+argsToIssueFilter _ = error "Tried applying an issue filter to non-issue command."
+
+
 -- | Route a 'HKRedmine' Mode to a 'Redmine' Action.
 dispatch :: HKRedmine -> Redmine ()
 dispatch m = case m of
@@ -45,7 +78,7 @@ dispatch m = case m of
         Status          -> liftIO printStatus
         Projects        -> printProjects
         Project p       -> printProject p
-        Issues p        -> printProjectsIssues p
+        i@(Issues {})   -> argsToIssueFilter i >>= printIssues
         StartWork i     -> startTimeTracking i
         StopWork a c    -> stopTimeTracking a c
         Pause           -> liftIO pauseTimeTracking
@@ -103,15 +136,72 @@ projects    = record Projects {} []
               += help "Print all Projects."
 
 project     = record Project { projectIdent = def }
-            [ projectIdent := def
-                           += argPos 0 += typ "PROJECTIDENT"
+            [ projectIdent  := def
+                            += argPos 0 += typ "PROJECTIDENT"
             ] += help "Print the details of a Project."
 
-issues      = record Issues { projectIdent = def }
-            [ projectIdent := def
-                           += argPos 0 += typ "PROJECTIDENT"
-            ] += help "Print all Issues of a Project."
+issues      = record Issues { projectIdent = def, statusIdent = def
+                            , trackerIdent = def, assignedTo = def
+                            , sortByField = def, limitTo = def
+                            , issueOffset = def }
+            [ projectIdent  := def
+                            += typ "PROJECTIDENT"
+                            += name "p"
+                            += name "project"
+                            += groupname "filter"
+                            += explicit
+                            += help "A Project's Identifier or ID"
+            , statusIdent   := "open"
+                            += typ "STATUS"
+                            += name "status"
+                            += name "s"
+                            += groupname "filter"
+                            += explicit
+                            += help "A Status Name"
+            , trackerIdent  := def
+                            += typ "TRACKERNAME"
+                            += name "tracker"
+                            += name "t"
+                            += groupname "filter"
+                            += explicit
+                            += help "A Tracker Name"
+            , assignedTo    := ""
+                            += opt ("me" :: String)
+                            += name "userid"
+                            += name "u"
+                            += groupname "filter"
+                            += explicit
+                            += help "A User ID(defaults to yours)"
+            , issueOffset   := 0
+                            += typ "INT"
+                            += name "offset"
+                            += name "o"
+                            += explicit
+                            += groupname "range"
+                            += help "Start listing Issues at this row number"
+            , sortByField   := "updated_on"
+                            += typ "FIELD"
+                            += name "sort"
+                            += name "S"
+                            += explicit
+                            += groupname "sort"
+                            += help ("Comma-separated columns to sort by. " ++
+                                     "Valid options are \"project\", \"priority\", " ++
+                                     "\"status\", and \"category\"" )
+            , limitTo       := 20
+                            += typ "INT"
+                            += name "limit"
+                            += name "n"
+                            += name "l"
+                            += explicit
+                            += groupname "range"
+                            += help "Limit the number of Issues to show"
+            ] += help "Filter and Print Issues."
               += groupname "Issues"
+              += details [ "Example Usage:"
+                         , "hkredmine issues -u"
+                         , "hkredmine issues -n 50 -p accounting-app -S priority"
+                         ]
 
 startwork   = record StartWork { issueId = def }
             [ issueId := def
@@ -121,7 +211,7 @@ startwork   = record StartWork { issueId = def }
 
 stopwork    = record StopWork { activityType = def, timeComment = def }
             [ activityType := Nothing
-                           += typ "ACTIVITYIDENT"
+                           += typ "ACTIVITYNAME"
                            += name "activity"
                            += name "a"
                            += explicit
@@ -134,6 +224,16 @@ stopwork    = record StopWork { activityType = def, timeComment = def }
                            += help "A comment to add with the time entry."
             ] += help "Stop time tracking and submit a time entry."
               += groupname "Time Tracking"
+              += details [ "This command stops tracking time for the current Issue, prompts"
+                         , "for a Time Entry Activity and Comment and creates a new Time"
+                         , "Entry using these values."
+                         , ""
+                         , "Flags can be passed to skip the prompts:"
+                         , ""
+                         , "hkredmine stopwork"
+                         , "hkredmine stopwork --comment=\"Responding to User Bug Reports\""
+                         , "hkredmine stopwork -a Design -c \"Write specs\""
+                         ]
 
 pause       = record Pause {} []
               += help "Pause time tracking."

@@ -37,6 +37,7 @@ module Web.HTTP.Redmine
         , defaultRedmineConfig
         , redmineLeft
         -- * Redmine Types
+        , IssueFilter
         -- ** ID Types
         , ProjectId
         , ProjectIdent
@@ -49,6 +50,7 @@ module Web.HTTP.Redmine
         , Issues(..)
         , Status(..)
         , Activity(..)
+        , Tracker(..)
         , User(..)
         , Version(..)
         -- ** API-related Types
@@ -60,7 +62,7 @@ module Web.HTTP.Redmine
         -- ** Issues
         , getAllIssues
         , getMyIssues
-        , getProjectsIssues
+        , getIssues
         , getVersionsIssues
         , getIssue
         , updateIssue
@@ -68,6 +70,9 @@ module Web.HTTP.Redmine
         , getStatuses
         , getStatusFromName
         , getStatusFromId
+        -- ** Trackers
+        , getTrackers
+        , getTrackerFromName
         -- ** Versions
         , getVersions
         , getVersion
@@ -140,7 +145,13 @@ getMyIssues projectID       = getAllIssues
 -- | Retrieve all 'Issues' of a 'Project'
 getProjectsIssues :: ProjectId -> IssueFilter -> Redmine [Issue]
 getProjectsIssues pID f     = do
-        Issues is <- getEndPoint (GetProjectsIssues pID) $
+        Issues is <- getEndPoint (GetProjectsIssues pID) f
+        return is
+
+-- | Retrieve a set of Issues based on an 'IssueFilter'
+getIssues :: IssueFilter -> Redmine [Issue]
+getIssues f                  = do
+        Issues is <- getEndPoint GetIssues $
                             [ ("offset", "0")
                             , ("limit", "100")
                             ] ++ f
@@ -200,6 +211,15 @@ addTimeEntry i dt a comment = postEndPoint GetTimeEntries postData
                                          , "comments" .= comment
                                          ] ]
 
+-- Trackers
+-- | Retrieve a list of all Trackers.
+getTrackers :: Redmine [Tracker]
+getTrackers                 = do Trackers ts <- getEndPoint GetTrackers []
+                                 return ts
+
+-- | Retrieve a 'Tracker' given it's 'trackerName'.
+getTrackerFromName :: String -> Redmine (Maybe Tracker)
+getTrackerFromName name     = getItemFromField getTrackers ((== name) . trackerName)
 
 -- Users
 -- | Retrieve the current 'User'.
@@ -231,7 +251,8 @@ getVersion v                = getEndPoint (GetVersion v) []
 -- | Retrieve all 'Issues' of a 'Version'.
 getVersionsIssues :: ProjectId -> Version -> Redmine [Issue]
 getVersionsIssues pID v     = getProjectsIssues pID
-        [ ("fixed_version_id", BC.pack . show $ versionId v) ]
+        [ ("limit", "100")
+        , ("fixed_version_id", BC.pack . show $ versionId v) ]
 
 -- | Retrieve the next open 'Version' of a 'Project' with the soonest
 -- 'versionDueDate'.

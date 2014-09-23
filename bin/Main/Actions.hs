@@ -9,7 +9,7 @@ module Main.Actions
         ( printStatus
         , printProject
         , printProjects
-        , printProjectsIssues
+        , printIssues
         , printVersion
         , printVersions
         , printNextVersion
@@ -80,12 +80,10 @@ printProject :: ProjectIdent -> Redmine ()
 printProject pIdent     = getProjectFromIdent pIdent >>=
                           liftIO . putStrLn . projectDetail
 
--- | Print All Issues of a 'Project'.
-printProjectsIssues :: ProjectIdent -> Redmine ()
-printProjectsIssues pIdent      = do
-        proj        <- getProjectFromIdent pIdent
-        issues      <- getProjectsIssues (projectId proj) []
-        liftIO . putStrLn . issuesTable $ issues
+-- | Print Issues filtered by a command line arguments
+printIssues :: IssueFilter -> Redmine ()
+printIssues f           = getIssues f >>= liftIO . putStrLn . issuesTable
+
 
 -- | Print A 'Version' and it's Issues.
 printVersion :: VersionId -> Redmine ()
