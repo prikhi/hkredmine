@@ -409,7 +409,6 @@ argsToIssueFilter _ = redmineLeft "Tried applying an issue filter to non-issue c
 -- the 'createIssue' API function.
 argsToIssueObject :: HKRedmine -> Redmine LB.ByteString
 argsToIssueObject i@(NewIssue {})   = do
-        liftIO $ print i
         when (projectIdent i == "" || subject i == "")
            $ redmineLeft "Both a Project Identifier and a Subject are required."
         validProject    <- R.getProjectFromIdent $ projectIdent i

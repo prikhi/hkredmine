@@ -70,12 +70,15 @@ redmineLeft :: String -> Redmine a
 redmineLeft = lift . lift . lift . left
 
 
--- | A basic Redmine API Request.
+-- | A basic Redmine API Request. The API key is sent through both HTTP
+-- authorization and the request's headers to make sure we support as many
+-- servers as possible.
 redmineRequest :: EndPoint -> Redmine Request
 redmineRequest ep       = do
         config      <- get
         initReq     <- liftIO . parseUrl $ makeURL (redURL config) ep
-        return initReq { requestHeaders = [ ("Content-Type", "application/json")
+        return . applyBasicAuth (redAPI config) "" $
+               initReq { requestHeaders = [ ("Content-Type", "application/json")
                                           , ("X-Redmine-API-Key", redAPI config)
                                           ] }
 
