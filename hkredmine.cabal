@@ -29,7 +29,7 @@ executable hkredmine
                        strict,
                        bytestring,
                        ConfigFile,
-                       mtl,
+                       mtl>=2.2,
                        MissingH
 
   ghc-options:         -Wall
