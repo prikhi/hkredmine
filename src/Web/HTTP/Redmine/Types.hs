@@ -139,7 +139,7 @@ instance FromJSON Issue where
                       <*> v `maybeGrabName` "category"
                       <*> v `maybeGrabName` "fixed_version"
                       <*> v .: "subject"
-                      <*> v .: "description"
+                      <*> v .:? "description" .!= ""
                       <*> v .: "done_ratio"
                       <*> v .: "created_on"
                       <*> v .: "updated_on"

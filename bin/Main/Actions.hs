@@ -14,6 +14,7 @@ module Main.Actions
         , printVersion
         , printVersions
         , printNextVersion
+        , createNewIssue
         , switchAccount
         , startTimeTracking
         , stopTimeTracking
@@ -25,6 +26,7 @@ module Main.Actions
         ) where
 
 
+import qualified Data.ByteString.Lazy as LB     (ByteString)
 import qualified Data.List as L
 
 import Control.Applicative      ((<$>))
@@ -122,6 +124,16 @@ printNextVersion pIdent = do
         case maybeVersion of
             Nothing     -> redmineLeft "No valid version found."
             Just v      -> printVersion $ versionId v
+
+
+-- Issue Creation/Updates
+-- | Create a new Issue and print it's ID.
+createNewIssue :: LB.ByteString -> Redmine ()
+createNewIssue postData = do
+        issue           <- createIssue postData
+        liftIO . putStrLn $ "Created Issue #" ++ show (issueId issue) ++ ": " ++
+                            issueSubject issue
+
 
 -- Account Tracking
 -- | Switch the current account used.

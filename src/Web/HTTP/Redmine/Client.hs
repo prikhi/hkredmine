@@ -94,10 +94,10 @@ getEndPoint ep getData  = do
 
 -- | Send a POST request to the given 'EndPoint' along with any passed
 -- parameters
-postEndPoint :: EndPoint -> LB.ByteString -> Redmine ()
+postEndPoint :: EndPoint -> LB.ByteString -> Redmine (Response LBC.ByteString)
 postEndPoint ep postData = do
         initReq         <- redmineRequest ep
-        void $ makeRequest initReq
+        makeRequest initReq
                 { method      = "POST"
                 , requestBody = RequestBodyLBS postData
                 }

@@ -65,6 +65,7 @@ module Web.HTTP.Redmine
         , getVersionsIssues
         , getIssue
         , updateIssue
+        , createIssue
         -- ** Issue Statuses
         , getStatuses
         , getStatusFromName
@@ -99,11 +100,15 @@ import qualified Data.ByteString.Char8 as BC    (pack)
 import qualified Data.ByteString.Lazy as LB     (ByteString)
 import qualified Data.List as L                 (find, sortBy)
 
-import Control.Monad                (when)
-import Data.Aeson                   (FromJSON, object, (.=), encode)
+import Control.Monad                (when, void)
+import Control.Monad.Trans.Class    (lift)
+import Control.Monad.Trans.Either   (hoistEither)
+import Data.Aeson                   (FromJSON, object, (.=), encode,
+                                     eitherDecode)
 import Data.Function                (on)
 import Data.Maybe                   (isJust, isNothing, fromJust)
 import Data.Time.Clock              (DiffTime)
+import Network.HTTP.Conduit         (responseBody)
 import Safe                         (headMay)
 
 import Web.HTTP.Redmine.Client
@@ -150,6 +155,12 @@ getIssue issueID            = getEndPoint (GetIssue issueID) []
 updateIssue ::  IssueId -> LB.ByteString -> Redmine ()
 updateIssue issueID         = putEndPoint $ UpdateIssue issueID
 
+-- | Create an 'Issue'. Make and encode the JSON object yourself.
+createIssue :: LB.ByteString -> Redmine Issue
+createIssue postData        =  do
+        response            <- postEndPoint GetIssues postData
+        lift . lift . lift . hoistEither . eitherDecode . responseBody $ response
+
 
 -- Statuses
 -- | Retrieve all available statuses.
@@ -186,7 +197,7 @@ getActivityFromName name = getItemFromField getActivities ((== name) . activityN
 
 -- | Submit a new Time Entry.
 addTimeEntry :: IssueId -> DiffTime -> Activity -> String -> Redmine ()
-addTimeEntry i dt a comment = postEndPoint GetTimeEntries postData
+addTimeEntry i dt a comment = void $ postEndPoint GetTimeEntries postData
         where hours         = fromIntegral (round dt :: Integer) / 3600.0
               postData      = encode $ object
                 [ "time_entry" .= object [ "issue_id" .= i
@@ -227,7 +238,7 @@ getCurrentUser              = getEndPoint GetCurrentUser []
 -- Watching
 -- | Add a watcher to an 'Issue'.
 addWatcher :: IssueId -> User -> Redmine ()
-addWatcher i user           = postEndPoint (AddWatcher i) postData
+addWatcher i user           = void $ postEndPoint (AddWatcher i) postData
         where postData      = encode $ object [ "user_id" .= userId user ]
 
 -- | Remove a watcher from an 'Issue'.

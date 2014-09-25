@@ -30,6 +30,9 @@ executable hkredmine
                        bytestring,
                        ConfigFile,
                        mtl>=2.2,
+                       http-client,
+                       process,
+                       temporary,
                        MissingH
 
   ghc-options:         -Wall

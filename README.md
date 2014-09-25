@@ -65,8 +65,8 @@ You can then switch accounts using the `use` command, like so:
     # Projects from account2 tracker are shown
 
 
-Usage
-------
+General Usage
+--------------
 
 Run `hkredmine --help` for a listing of available commands and options.
 Run `hkredmine <command> --help` for additional help and available parameters
@@ -108,6 +108,26 @@ The following commands are currently available:
         versions     Print all of a Project's Versions.
         version      Print the details of a Version.
         nextversion  Print the next Version due for a Project.
+
+
+Creating Issues
+----------------
+
+You can use the `newissue` command to create a new Issue. You need to pass it a
+project identifier and a subject:
+
+    hkredmine newissue -p my_proj -s "Refactor Foobar Class"
+
+If you want to write out a longer description, pass the `-e` flag to open up
+your `$EDITOR`:
+
+    export EDITOR=vim
+    hkredmine newissue -p my_proj -s "Refactor that thing" -e
+
+Once you happy with the description, save and quit. You might encounter issues
+with asynchronous editors like `gvim`. You could make an alias:
+
+    alias hkredmine="EDITOR=vim hkredmine"
 
 
 Time Tracking

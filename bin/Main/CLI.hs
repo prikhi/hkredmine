@@ -13,12 +13,19 @@ module Main.CLI
 
 import qualified Web.HTTP.Redmine as R
 import qualified Data.ByteString.Char8 as BC    (pack)
+import qualified Data.ByteString.Lazy as LB     (ByteString)
 
 
 import Control.Monad            (when)
 import Control.Monad.IO.Class   (liftIO)
+import Data.Aeson               ((.=), object, encode, FromJSON)
 import Data.Maybe               (isNothing, fromJust)
 import System.Console.CmdArgs
+import System.Directory         (removeFile)
+import System.Environment       (getEnv)
+import System.IO                (hClose)
+import System.IO.Temp           (withSystemTempDirectory, withTempFile)
+import System.Process           (callProcess)
 
 import Web.HTTP.Redmine         (Redmine, IssueFilter, redmineLeft)
 
@@ -39,6 +46,15 @@ data HKRedmine
                         , sortByField       :: String
                         , limitTo           :: Integer
                         , issueOffset       :: Integer }
+        | NewIssue      { projectIdent      :: String
+                        , trackerIdent      :: String
+                        , statusIdent       :: String
+                        , priorityIdent     :: String
+                        , subject           :: String
+                        , description       :: String
+                        , versionId         :: Integer
+                        , editDescript      :: Bool
+                        , isNotMine            :: Bool }
         | StartWork     { issueId           :: Integer }
         | StopWork      { activityType      :: Maybe String
                         , timeComment       :: Maybe String }
@@ -53,39 +69,6 @@ data HKRedmine
          deriving (Show, Data, Typeable)
 
 
--- | Transform the arguements of the Issues mode into an IssueFilter.
-argsToIssueFilter :: HKRedmine -> Redmine IssueFilter
-argsToIssueFilter i@(Issues {}) = do
-        filterTracker   <- grabFromName R.getTrackerFromName "Tracker" $ trackerIdent i
-        filterPriority  <- grabFromName R.getPriorityFromName "Priority" $ priorityIdent i
-        filterStatus    <- R.getStatusFromName $ statusIdent i
-        when (isNothing filterStatus && statusIdent i `notElem` ["", "open", "closed", "*"])
-           $ redmineLeft "Not a valid Status name."
-        return . map packIt $
-            [ ("project_id", projectIdent i)
-                    | projectIdent i /= "" ] ++
-            [ ("tracker_id", show . R.trackerId $ filterTracker)
-                    | trackerIdent i /= "" ] ++
-            [ ("status_id", show . R.statusId $ fromJust filterStatus)
-                    | statusIdent i `notElem` ["", "open", "closed", "*"] ] ++
-            [ ("status_id", statusIdent i)
-                    | statusIdent i `elem` ["open", "closed", "*"] ] ++
-            [ ("priority_id", show . R.priorityId $ filterPriority)
-                    | priorityIdent i /= "" ] ++
-            [ ("assigned_to_id", assignedTo i)
-                    | assignedTo i /= "" ] ++
-            [ ("sort", sortByField i)
-            , ("limit", show $ limitTo i)
-            , ("offset", show $ issueOffset i) ]
-        where packIt (s1, s2)   = (s1, BC.pack s2)
-              grabFromName grab item itemName   = do
-                    mayValue    <- grab itemName
-                    when (isNothing mayValue && itemName /= "") $
-                         redmineLeft $ "Not a valid " ++ item ++ " name."
-                    return $ fromJust mayValue
-argsToIssueFilter _ = redmineLeft "Tried applying an issue filter to non-issue command."
-
-
 -- | Route a 'HKRedmine' Mode to a 'Redmine' Action.
 dispatch :: HKRedmine -> Redmine ()
 dispatch m = case m of
@@ -95,6 +78,7 @@ dispatch m = case m of
         Projects        -> printProjects
         Project p       -> printProject p
         i@(Issues {})   -> argsToIssueFilter i >>= printIssues
+        i@(NewIssue {}) -> argsToIssueObject i >>= createNewIssue
         StartWork i     -> startTimeTracking i
         StopWork a c    -> stopTimeTracking a c
         Pause           -> liftIO pauseTimeTracking
@@ -112,7 +96,7 @@ hkredmine :: Annotate Ann
 hkredmine = modes_
         [ use, status, fields
         , projects, project
-        , issues
+        , issues, newissue
         , startwork, stopwork, pause, resume, abort
         , watch, unwatch
         , versions, version, nextversion ]
@@ -122,28 +106,29 @@ hkredmine = modes_
 
 
 -- | Default options for modes
-use, status, fields, projects, project, issues, startwork, stopwork, pause,
-     resume, abort, watch, unwatch, versions, version, nextversion :: Annotate Ann
-use = record Use { accountName = def }
-    [ accountName := def
-                  += argPos 0
-                  += typ "ACCOUNTNAME"
-    ] += help "Switch to a different redmine account."
-      += details
-        [ "Multiple accounts are available by adding a \"[AccountName]\" line"
-        , "before each account's \"apikey\" and \"url\" in your ~/.hkredminerc:"
-        , ""
-        , "[account1]"
-        , "apikey = \"longalphanumericstring\""
-        , "url = http://redmine.yourdomain.com/"
-        , ""
-        , "[account2]"
-        , "apikey = \"differentkey\""
-        , "url = http://redmine.otherdomain.com/"
-        , ""
-        , "Then you can use the \"use\" command to switch to the second account:"
-        , "hkredmine use account2"
-        ]
+use, status, fields, projects, project, issues, newissue, startwork,
+    stopwork, pause, resume, abort, watch, unwatch, versions, version,
+    nextversion :: Annotate Ann
+use         = record Use { accountName = def }
+            [ accountName := def
+                          += argPos 0
+                          += typ "ACCOUNTNAME"
+            ] += help "Switch to a different redmine account."
+              += details
+    [ "Multiple accounts are available by adding a \"[AccountName]\" line"
+    , "before each account's \"apikey\" and \"url\" in your ~/.hkredminerc:"
+    , ""
+    , "[account1]"
+    , "apikey = \"longalphanumericstring\""
+    , "url = http://redmine.yourdomain.com/"
+    , ""
+    , "[account2]"
+    , "apikey = \"differentkey\""
+    , "url = http://redmine.otherdomain.com/"
+    , ""
+    , "Then you can use the \"use\" command to switch to the second account:"
+    , "hkredmine use account2"
+    ]
 status      = record Status {} []
               += help "Print the current Account, Issue and Tracked Time."
               += auto
@@ -225,14 +210,94 @@ issues      = record Issues { projectIdent = def, statusIdent = def
                             += help "Limit the number of Issues to show"
             ] += help "Filter and Print Issues."
               += groupname "Issues"
-              += details [ "Run `hkredmine fields` for valid Status, Priority and"
-                         , "Tracker values."
-                         , ""
-                         , "Example Usage:"
-                         , "hkredmine issues -u"
-                         , "hkredmine issues -n 50 -p accounting-app -S priority"
-                         , "hkredmine issues --status=open -t Bug"
-                         ]
+              += details
+    [ "Run `hkredmine fields` for valid Status, Priority and"
+    , "Tracker values."
+    , ""
+    , "Example Usage:"
+    , "hkredmine issues -u"
+    , "hkredmine issues -n 50 -p accounting-app -S priority"
+    , "hkredmine issues --status=open -t Bug"
+    ]
+
+newissue    = record NewIssue { projectIdent = def, trackerIdent = def
+                              , statusIdent = def, priorityIdent = def
+                              , isNotMine = def, subject = def
+                              , description = def, versionId = def
+                              , editDescript = False }
+            [ projectIdent  := def
+                            += typ "PROJECTIDENT"
+                            += name "project"
+                            += name "p"
+                            += groupname "Required"
+                            += explicit
+                            += help "A Project's Identifier or ID"
+            , subject       := def
+                            += typ "STRING"
+                            += name "subject"
+                            += name "s"
+                            += groupname "Required"
+                            += explicit
+                            += help "The Issue's Subject"
+            , description   := def
+                            += typ "STRING"
+                            += name "description"
+                            += name "d"
+                            += explicit
+                            += groupname "Optional"
+                            += help "A Full Description About the Issue"
+            , statusIdent   := def
+                            += typ "STATUSNAME"
+                            += name "status"
+                            += name "a"
+                            += explicit
+                            += groupname "Optional"
+                            += help "A Status Name"
+            , trackerIdent  := def
+                            += typ "TRACKERNAME"
+                            += name "tracker"
+                            += name "t"
+                            += explicit
+                            += groupname "Optional"
+                            += help "A Tracker Name"
+            , priorityIdent := def
+                            += typ "PRIORITYNAME"
+                            += name "priority"
+                            += name "i"
+                            += explicit
+                            += groupname "Optional"
+                            += help "A Priority Name"
+            , isNotMine     := def
+                            += name "not-mine"
+                            += name "n"
+                            += explicit
+                            += groupname "Optional"
+                            += help "Don't assign it to me"
+            , versionId     := def
+                            += typ "INT"
+                            += name "vers"
+                            += name "v"
+                            += explicit
+                            += groupname "Optional"
+                            += help "A Version's ID"
+            , editDescript  := def
+                            += name "e"
+                            += name "edit-description"
+                            += explicit
+                            += help "Edit the description in $EDITOR. Ignores -d"
+            ] += help "Create a New Issue."
+              += groupname "Issues"
+              += details
+    [ "A minimum of a project and status are required to create an Issue:"
+    , "hkredmine newissue -p my-project -s 'Do Some Things'"
+    , ""
+    , "You can also write the description in your $EDITOR by setting the '-e' flag:"
+    , "hkredmine newissue -p my-project -s 'Test Writing Description in Vim' -e"
+    , ""
+    , "This may not work correctly if your $EDITOR runs asynchronously. Try"
+    , "using a CLI text editor:"
+    , "EDITOR=vim hkredmine newissue -e ..."
+    ]
 
 startwork   = record StartWork { issueId = def }
             [ issueId := def
@@ -255,18 +320,19 @@ stopwork    = record StopWork { activityType = def, timeComment = def }
                            += help "A comment to add with the time entry."
             ] += help "Stop time tracking and submit a time entry."
               += groupname "Time Tracking"
-              += details [ "This command stops tracking time for the current Issue, prompts"
-                         , "for a Time Entry Activity and Comment and creates a new Time"
-                         , "Entry using these values."
-                         , ""
-                         , "Flags can be passed to skip the prompts:"
-                         , ""
-                         , "hkredmine stopwork"
-                         , "hkredmine stopwork --comment=\"Responding to User Bug Reports\""
-                         , "hkredmine stopwork -a Design -c \"Write specs\""
-                         , ""
-                         , "Run `hkredmine fields` to get the available Time Entry Activities."
-                         ]
+              += details
+    [ "This command stops tracking time for the current Issue, prompts for a"
+    , "Time Entry Activity and Comment and creates a new Time Entry using"
+    , "these values."
+    , ""
+    , "Flags can be passed to skip the prompts:"
+    , ""
+    , "hkredmine stopwork"
+    , "hkredmine stopwork --comment=\"Responding to User Bug Reports\""
+    , "hkredmine stopwork -a Design -c \"Write specs\""
+    , ""
+    , "Run `hkredmine fields` to get the available Time Entry Activities."
+    ]
 
 pause       = record Pause {} []
               += help "Pause time tracking."
@@ -309,3 +375,86 @@ nextversion = record NextVersion { projectIdent = def }
                            += argPos 0 += typ "PROJECTIDENT"
             ] += help "Print the next Version due for a Project."
               += groupname "Versions"
+
+
+-- Utils
+-- | Transform the arguements of the Issues mode into an IssueFilter.
+argsToIssueFilter :: HKRedmine -> Redmine IssueFilter
+argsToIssueFilter i@(Issues {}) = do
+        filterTracker   <- grabFromName R.getTrackerFromName "Tracker" $ trackerIdent i
+        filterPriority  <- grabFromName R.getPriorityFromName "Priority" $ priorityIdent i
+        filterStatus    <- R.getStatusFromName $ statusIdent i
+        when (isNothing filterStatus && statusIdent i `notElem` ["", "open", "closed", "*"])
+           $ redmineLeft "Not a valid Status name."
+        return . map packIt $
+            [ ("project_id", projectIdent i)
+                    | projectIdent i /= "" ] ++
+            [ ("tracker_id", show . R.trackerId $ filterTracker)
+                    | trackerIdent i /= "" ] ++
+            [ ("status_id", show . R.statusId $ fromJust filterStatus)
+                    | statusIdent i `notElem` ["", "open", "closed", "*"] ] ++
+            [ ("status_id", statusIdent i)
+                    | statusIdent i `elem` ["open", "closed", "*"] ] ++
+            [ ("priority_id", show . R.priorityId $ filterPriority)
+                    | priorityIdent i /= "" ] ++
+            [ ("assigned_to_id", assignedTo i)
+                    | assignedTo i /= "" ] ++
+            [ ("sort", sortByField i)
+            , ("limit", show $ limitTo i)
+            , ("offset", show $ issueOffset i) ]
+        where packIt (s1, s2)   = (s1, BC.pack s2)
+argsToIssueFilter _ = redmineLeft "Tried applying an issue filter to non-issue command."
+
+-- | Transform the arguments of the NewIssue mode into a JSON object for
+-- the 'createIssue' API function.
+argsToIssueObject :: HKRedmine -> Redmine LB.ByteString
+argsToIssueObject i@(NewIssue {})   = do
+        liftIO $ print i
+        when (projectIdent i == "" || subject i == "")
+           $ redmineLeft "Both a Project Identifier and a Subject are required."
+        validProject    <- R.getProjectFromIdent $ projectIdent i
+        validTracker    <- grabFromName R.getTrackerFromName "Tracker" $ trackerIdent i
+        validPriority   <- grabFromName R.getPriorityFromName "Priority" $ priorityIdent i
+        validStatus     <- grabFromName R.getStatusFromName "Status" $ statusIdent i
+        currentUser     <- R.getCurrentUser
+        actualDescript  <- if editDescript i then liftIO openEditorAndGetContents
+                           else return $ description i
+        return . encode $ object [ "issue" .= object (
+                [ "project_id" .= show (R.projectId validProject)
+                , "subject" .= subject i ] ++
+                [ "tracker_id" .= show (R.trackerId validTracker)
+                        | trackerIdent i /= "" ] ++
+                [ "priority_id" .= show (R.priorityId validPriority)
+                        | priorityIdent i /= "" ] ++
+                [ "status_id" .= show (R.statusId validStatus)
+                        | statusIdent i /= "" ] ++
+                [ "assigned_to_id" .= show (R.userId currentUser)
+                        | not (isNotMine i) ] ++
+                [ "fixed_version_id" .= versionId i
+                        | versionId i /= 0 ] ++
+                [ "description" .= actualDescript
+                        | actualDescript /= "" ]
+                )
+            ]
+argsToIssueObject _ = redmineLeft "The wrong command tried parsing newissues arguments."
+
+-- | Get an item from it's name or return an error.
+grabFromName :: FromJSON a => (String -> Redmine (Maybe a)) -> String -> String -> Redmine a
+grabFromName grab item itemName     = do
+        mayValue        <- grab itemName
+        when (isNothing mayValue && itemName /= "") $
+             redmineLeft $ "Not a valid " ++ item ++ " name."
+        return $ fromJust mayValue
+
+-- | Open a temporary file with the user's editor and return it's final
+-- contents.
+openEditorAndGetContents :: IO String
+openEditorAndGetContents         = do
+        editor  <- getEnv "EDITOR"
+        withSystemTempDirectory "hkredmine" $ \dir -> do
+            fn  <- withTempFile dir "hkr.redmine" (\fn' fh -> hClose fh >> return fn')
+            writeFile fn "\n"
+            _           <- callProcess editor [fn]
+            contents    <- readFile fn
+            removeFile fn
+            return contents
