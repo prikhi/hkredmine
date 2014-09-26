@@ -32,10 +32,10 @@ projectsTable = showTable [ ColDesc center "ID" left (show . projectId)
 -- Category & Subject.
 issuesTable :: [Issue] -> String
 issuesTable = showTable [ ColDesc center "ID" left $ show . issueId
+                        , ColDesc center "Tracker" left issueTracker
+                        , ColDesc center "Priority" left issuePriority
                         , ColDesc center "Subject" left issueSubject
                         , ColDesc center "Status" left issueStatus
-                        , ColDesc center "Priority" left issuePriority
-                        , ColDesc center "Tracker" left issueTracker
                         , ColDesc center "Category" left $ fromMaybe "" . issueCategory
                         ]
 

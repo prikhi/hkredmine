@@ -158,8 +158,7 @@ You can skip the prompts by passing parameters on the command line:
 Workflow
 ---------
 
-The client is not yet complete, but the proposed workflow is similar to the
-following:
+At v1.0 you should be able to do the following:
 
     # Wake up, pick a tracker:
     hkredmine use sleepanarchy
@@ -215,6 +214,31 @@ following:
     # Fix the issue and mark as resolved.
     hkredmine stopwork --activity=Development comment="Fixed thing, waiting on confirmation."
     hkredmine watch 154
+
+Still need to implement:
+* watched
+* details
+* update
+* close
+* delete
+* categories
+
+Maybe eventually:
+* newproject
+* newcategory, newstatus, etc.
+* newaccount
+* wiki
+* editwiki
+
+Open tickets with any requests.
+
+
+Contribute
+-----------
+
+Submit bugs and patches: http://bugs.sleepanarchy.com/projects/hkredmine
+
+Or on github: https://github.com/prikhi/hkredmine
 
 
 [vim-redminewiki]: https://github.com/s3rvac/vim-syntax-redminewiki/
