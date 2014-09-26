@@ -9,6 +9,7 @@ module Web.HTTP.Redmine.Format
         , issuesTable
         , versionTable
         , projectDetail
+        , issueDetail
         , versionDetail
         ) where
 
@@ -64,25 +65,49 @@ projectDetail p = intercalate "\n"
         , projectDescription p
         ]
 
+-- | Create a Tring displaying the details of a single 'Issue'.
+issueDetail :: Issue -> String
+issueDetail i       = intercalate "\n" $
+        [ name
+        , horizLine '=' name
+        , "Created By:  " ++ issueAuthor i
+        , ""
+        , "Status:      " ++ issueStatus i
+        , "Priority:    " ++ issuePriority i ] ++
+        [ "Assignee:    " ++ fromJust (issueAssignedTo i)
+                | isJust (issueAssignedTo i) ] ++
+        [ "" ] ++
+        [ "Category:    " ++ fromJust (issueCategory i)
+                | isJust (issueCategory i) ] ++
+        [ "Version:     " ++ fromJust (issueVersion i)
+                | isJust (issueVersion i) ] ++
+        [ ""    | isJust (issueDueDate i) || isJust (issueStartDate i) ] ++
+        [ "Start Date:  " ++ fromJust (issueStartDate i)
+                | isJust (issueStartDate i) ] ++
+        [ "Stop Date:   " ++ fromJust (issueDueDate i)
+                | isJust (issueDueDate i) ] ++
+        [ show (issueDoneRatio i) ++ "% Done" ] ++
+        [ "\nDescription:\n" ++ issueDescription i
+                | issueDescription i /= "" ]
+        where name  = issueTracker i ++ " #" ++ show (issueId i) ++ ": " ++
+                      issueSubject i
+
 -- | Create a string to desiplay the Id, Name, Description and Due Date of
 -- a 'Version'.
 versionDetail :: Version -> String
-versionDetail v = intercalate "\n" $
+versionDetail v     = intercalate "\n" $
         [ vn
         , horizLine '=' vn
         , ""
         , "ID:      " ++ show (versionId v)
         , "Status:  " ++ versionStatus v
-        ] ++ if isJust (versionDueDate v) then
+        ] ++
         [ "Due:     " ++ fromJust (versionDueDate v)
-        ] else []
-        ++ if vd /= "" then
-        [ ""
-        , "Description:"
-        , vd
-        ] else []
-        where vn = versionName v
-              vd = versionDescription v
+                | isJust (versionDueDate v) ] ++
+        [ "\nDescription:\n" ++ vd
+                | vd /= "" ]
+        where vn    = versionName v
+              vd    = versionDescription v
 
 -- | Create a horizontal line the length of another string(+1)
 horizLine :: Char -> String -> String

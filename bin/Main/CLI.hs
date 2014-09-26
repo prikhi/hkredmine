@@ -38,6 +38,7 @@ data HKRedmine
         | Fields        { }
         | Projects      { }
         | Project       { projectIdent      :: String }
+        | Issue         { issueId           :: Integer }
         | Issues        { projectIdent      :: String
                         , trackerIdent      :: String
                         , statusIdent       :: String
@@ -77,6 +78,7 @@ dispatch m = case m of
         Fields          -> printFields
         Projects        -> printProjects
         Project p       -> printProject p
+        Issue i         -> printIssue i
         i@(Issues {})   -> argsToIssueFilter i >>= printIssues
         i@(NewIssue {}) -> argsToIssueObject i >>= createNewIssue
         StartWork i     -> startTimeTracking i
@@ -95,18 +97,18 @@ dispatch m = case m of
 hkredmine :: Annotate Ann
 hkredmine = modes_
         [ use, status, fields
-        , projects, project
-        , issues, newissue
+        , project, projects
+        , issue, issues, newissue
         , startwork, stopwork, pause, resume, abort
         , watch, unwatch
-        , versions, version, nextversion ]
+        , version, versions, nextversion ]
         += help "A Redmine CLI client"
         += program "hkredmine"
         += summary "HKRedmine v0.1"
 
 
 -- | Default options for modes
-use, status, fields, projects, project, issues, newissue, startwork,
+use, status, fields, projects, project, issue, issues, newissue, startwork,
     stopwork, pause, resume, abort, watch, unwatch, versions, version,
     nextversion :: Annotate Ann
 use         = record Use { accountName = def }
@@ -138,11 +140,19 @@ fields      = record Fields {} []
 
 projects    = record Projects {} []
               += help "Print all Projects."
+              += groupname "Projects"
 
 project     = record Project { projectIdent = def }
             [ projectIdent  := def
                             += argPos 0 += typ "PROJECTIDENT"
             ] += help "Print the details of a Project."
+              += groupname "Projects"
+
+issue       = record Issue { issueId = def }
+            [ issueId       := def
+                            += argPos 0 += typ "ISSUEID"
+            ] += help "Print the details of an Issue."
+              += groupname "Issues"
 
 issues      = record Issues { projectIdent = def, statusIdent = def
                             , trackerIdent = def, priorityIdent = def

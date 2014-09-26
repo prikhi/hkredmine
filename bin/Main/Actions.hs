@@ -10,6 +10,7 @@ module Main.Actions
         , printFields
         , printProject
         , printProjects
+        , printIssue
         , printIssues
         , printVersion
         , printVersions
@@ -90,7 +91,7 @@ printFields             =
 printProjects :: Redmine ()
 printProjects           = getProjects >>= liftIO . putStrLn . projectsTable
 
--- | Print A Single 'Project'.
+-- | Print A single 'Project'.
 printProject :: ProjectIdent -> Redmine ()
 printProject pIdent     = getProjectFromIdent pIdent >>=
                           liftIO . putStrLn . projectDetail
@@ -98,6 +99,10 @@ printProject pIdent     = getProjectFromIdent pIdent >>=
 -- | Print Issues filtered by a command line arguments
 printIssues :: IssueFilter -> Redmine ()
 printIssues f           = getIssues f >>= liftIO . putStrLn . issuesTable
+
+-- | Print a single 'Issue'.
+printIssue :: IssueId -> Redmine ()
+printIssue i            = getIssue i >>= liftIO . putStrLn . issueDetail
 
 
 -- | Print A 'Version' and it's Issues.

@@ -90,6 +90,7 @@ module Web.HTTP.Redmine
         , removeWatcher
         -- * Formatting
         , projectDetail
+        , issueDetail
         , versionDetail
         , projectsTable
         , issuesTable
