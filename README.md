@@ -157,6 +157,16 @@ You can skip the prompts by passing parameters on the command line:
 
     hkredmine stopwork --activity=Development --comment="Writing @stopwork@ documentation"
 
+Closing Issues
+---------------
+
+When Issues are considered finished, you can run the `close` command:
+
+    hkredmine close 154
+
+This will change the Issue's status to `Closed`, the done ratio to `100%` and
+the due date to today(but only if it was not set).
+
 
 Workflow
 ---------

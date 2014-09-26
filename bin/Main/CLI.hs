@@ -55,7 +55,8 @@ data HKRedmine
                         , description       :: String
                         , versionId         :: Integer
                         , editDescript      :: Bool
-                        , isNotMine            :: Bool }
+                        , isNotMine         :: Bool }
+        | Close         { issueId           :: Integer }
         | StartWork     { issueId           :: Integer }
         | StopWork      { activityType      :: Maybe String
                         , timeComment       :: Maybe String }
@@ -81,6 +82,7 @@ dispatch m = case m of
         Issue i         -> printIssue i
         i@(Issues {})   -> argsToIssueFilter i >>= printIssues
         i@(NewIssue {}) -> argsToIssueObject i >>= createNewIssue
+        Close i         -> closeIssue i
         StartWork i     -> startTimeTracking i
         StopWork a c    -> stopTimeTracking a c
         Pause           -> liftIO pauseTimeTracking
@@ -98,7 +100,7 @@ hkredmine :: Annotate Ann
 hkredmine = modes_
         [ use, status, fields
         , project, projects
-        , issue, issues, newissue
+        , issue, issues, newissue, close
         , startwork, stopwork, pause, resume, abort
         , watch, unwatch
         , version, versions, nextversion ]
@@ -108,9 +110,9 @@ hkredmine = modes_
 
 
 -- | Default options for modes
-use, status, fields, projects, project, issue, issues, newissue, startwork,
-    stopwork, pause, resume, abort, watch, unwatch, versions, version,
-    nextversion :: Annotate Ann
+use, status, fields, projects, project, issue, issues, newissue, close,
+    startwork, stopwork, pause, resume, abort, watch, unwatch, versions,
+    version, nextversion :: Annotate Ann
 use         = record Use { accountName = def }
             [ accountName := def
                           += argPos 0
@@ -309,25 +311,37 @@ newissue    = record NewIssue { projectIdent = def, trackerIdent = def
     , "EDITOR=vim hkredmine newissue -e ..."
     ]
 
+close       = record Close { issueId = def }
+            [ issueId       := def
+                            += argPos 0 += typ "ISSUEID"
+            ] += help "Close an Issue."
+              += groupname "Issues"
+              += details
+    [ "This command changes and Issue's status to Closed, it's Done Ratio to 100%"
+    , "and the Due Date to today, if previously unset:"
+    , ""
+    , "hkredmine close 154"
+    ]
+
 startwork   = record StartWork { issueId = def }
-            [ issueId := def
-                      += argPos 0 += typ "ISSUEID"
+            [ issueId       := def
+                            += argPos 0 += typ "ISSUEID"
             ] += help "Start tracking time for an Issue."
               += groupname "Time Tracking"
 
 stopwork    = record StopWork { activityType = def, timeComment = def }
-            [ activityType := Nothing
-                           += typ "ACTIVITYNAME"
-                           += name "activity"
-                           += name "a"
-                           += explicit
-                           += help "The time entry activity to use."
-            , timeComment  := Nothing
-                           += typ "COMMENT"
-                           += name "comment"
-                           += name "c"
-                           += explicit
-                           += help "A comment to add with the time entry."
+            [ activityType  := Nothing
+                            += typ "ACTIVITYNAME"
+                            += name "activity"
+                            += name "a"
+                            += explicit
+                            += help "The time entry activity to use."
+            , timeComment   := Nothing
+                            += typ "STRING"
+                            += name "comment"
+                            += name "c"
+                            += explicit
+                            += help "A comment to add with the time entry."
             ] += help "Stop time tracking and submit a time entry."
               += groupname "Time Tracking"
               += details

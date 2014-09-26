@@ -16,6 +16,7 @@ module Main.Actions
         , printVersions
         , printNextVersion
         , createNewIssue
+        , closeIssue
         , switchAccount
         , startTimeTracking
         , stopTimeTracking
@@ -31,7 +32,7 @@ import qualified Data.ByteString.Lazy as LB     (ByteString)
 import qualified Data.List as L
 
 import Control.Applicative      ((<$>))
-import Control.Monad            (when, unless, join)
+import Control.Monad            (when, unless, join, void)
 import Control.Monad.Except     (runExceptT)
 import Control.Monad.IO.Class   (liftIO)
 import Data.Aeson               ((.=), object, encode)
@@ -138,6 +139,36 @@ createNewIssue postData = do
         issue           <- createIssue postData
         liftIO . putStrLn $ "Created Issue #" ++ show (issueId issue) ++ ": " ++
                             issueSubject issue
+
+-- | Close an Issue, set it's Done Ratio to 100 and if it's Due Date is not
+-- set, set it to today.
+closeIssue :: IssueId -> Redmine ()
+closeIssue i            = do
+        liftIO . putStrLn $ "Closing Issue #" ++ show i ++ "..."
+        issue           <- getIssue i
+        closedStatus    <- getStatusFromName "Closed"
+        today           <- liftIO $ fmap utctDay getCurrentTime
+        let updateDue   = isNothing (issueDueDate issue) ||
+                          fromJust (issueDueDate issue) `notElem` [ "", show today ]
+            updateStat  = isJust closedStatus && issueStatus issue /= "Closed"
+            updateDone  = issueDoneRatio issue /= 100
+            doSomething = updateStat || updateDue || updateDone
+            putData     = encode $ object [ "issue" .= object (concat
+                        [ [ "status_id" .= statusId (fromJust closedStatus)
+                                | updateStat ]
+                        , [ "due_date" .= show today
+                                | updateDue ]
+                        , [ "done_ratio" .= (100 :: Integer)
+                                | updateDone ]
+                        , [ "notes" .= ("Closing Issue." :: String)
+                                | doSomething ]
+                        ]) ]
+        void $ updateIssue i putData
+        whenPrint updateStat "Issue status changed to Closed."
+        whenPrint updateDue "Issue due date set to today."
+        whenPrint updateDone "Issue done ratio set to 100%."
+        whenPrint (not doSomething) "Found nothing to do."
+        where whenPrint b s     = when b (liftIO $ putStrLn s)
 
 
 -- Account Tracking
