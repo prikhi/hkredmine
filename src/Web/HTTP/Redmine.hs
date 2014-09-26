@@ -52,6 +52,7 @@ module Web.HTTP.Redmine
         , Activity(..)
         , Tracker(..)
         , Priority(..)
+        , Category(..)
         , User(..)
         , Version(..)
         -- ** API-related Types
@@ -70,6 +71,9 @@ module Web.HTTP.Redmine
         , getStatuses
         , getStatusFromName
         , getStatusFromId
+        -- ** Issue Categories
+        , getCategories
+        , getCategoryFromName
         -- ** Trackers
         , getTrackers
         , getTrackerFromName
@@ -228,6 +232,16 @@ getPriorities               = do Priorities ps  <- getEndPoint GetPriorities []
 getPriorityFromName :: String -> Redmine (Maybe Priority)
 getPriorityFromName name    = getItemFromField getPriorities ((== name) . priorityName)
 
+
+-- Categories
+-- | Retrieve a list of every 'Category' in a 'Project'.
+getCategories :: ProjectId -> Redmine [Category]
+getCategories p             = do Categories cs  <- getEndPoint (GetCategories  p) []
+                                 return cs
+
+-- | Retrieve a 'Category' from a 'ProjectId' and a 'categoryName'.
+getCategoryFromName :: ProjectId -> String -> Redmine (Maybe Category)
+getCategoryFromName p name  = getItemFromField (getCategories p) ((== name) . categoryName)
 
 
 -- Users

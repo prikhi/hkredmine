@@ -8,6 +8,7 @@
 module Main.Actions
         ( printStatus
         , printFields
+        , printCategories
         , printProject
         , printProjects
         , printIssue
@@ -32,7 +33,7 @@ import qualified Data.ByteString.Lazy as LB     (ByteString)
 import qualified Data.List as L
 
 import Control.Applicative      ((<$>))
-import Control.Monad            (when, unless, join, void)
+import Control.Monad            ((>=>), when, unless, join, void)
 import Control.Monad.Except     (runExceptT)
 import Control.Monad.IO.Class   (liftIO)
 import Data.Aeson               ((.=), object, encode)
@@ -79,14 +80,15 @@ printStatus             = do
 -- Activities.
 printFields :: Redmine ()
 printFields             =
-        getStatuses >>= showFields "Issue Statuses" . map statusName >>
-        getTrackers >>= showFields "Issue Trackers" . map trackerName >>
-        getPriorities >>= showFields "Issue Priorities" . map priorityName >>
-        getActivities >>= showFields "Time Entry Activities" . map activityName
-        where showFields name fields = liftIO
-                                     $ putStrLn (name ++ ":")
-                                    >> mapM_ putStrLn fields
-                                    >> putStrLn ""
+        getStatuses >>= printWithHeader "Issue Statuses" . map statusName >> nl >>
+        getTrackers >>= printWithHeader "Issue Trackers" . map trackerName >> nl >>
+        getPriorities >>= printWithHeader "Issue Priorities" . map priorityName >> nl >>
+        getActivities >>= printWithHeader "Time Entry Activities" . map activityName
+        where nl        = liftIO $ putStrLn ""
+
+printCategories :: ProjectIdent -> Redmine ()
+printCategories         = getProjectFromIdent >=> getCategories . projectId >=>
+                          printWithHeader "Issue Categories" . map categoryName
 
 -- | Print All Projects
 printProjects :: Redmine ()
@@ -295,6 +297,10 @@ unwatchIssue i          = getCurrentUser >>= removeWatcher i >>
 
 
 -- Utils
+-- | Print a Header and associated Items
+printWithHeader :: String -> [String] -> Redmine ()
+printWithHeader header items = liftIO $ putStrLn (header ++ ":") >> mapM_ putStrLn items
+
 -- | Calculate the current amount of time tracked.
 getTrackedTime :: IO DiffTime
 getTrackedTime          = do

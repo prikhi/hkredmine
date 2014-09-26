@@ -30,6 +30,8 @@ module Web.HTTP.Redmine.Types
         , Trackers(..)
         , Priority(..)
         , Priorities(..)
+        , Category(..)
+        , Categories(..)
         ) where
 
 import Control.Applicative  ((<$>), (<*>))
@@ -56,6 +58,7 @@ data EndPoint    =
         | GetTimeEntries
         | GetTrackers
         | GetPriorities
+        | GetCategories ProjectId
         | GetIssues
         | GetProjectsIssues ProjectId
         | GetIssue IssueId
@@ -96,14 +99,14 @@ instance FromJSON Project where
                         <*> v .: "description"
                         <*> v .: "created_on"
                         <*> v .: "updated_on"
-        parseJSON _          = fail "Unable to parse Project JSON Object"
+        parseJSON _          = fail "Unable to parse Project JSON Object."
 
 instance FromJSON Projects where
         parseJSON (Object v) = do
                 projectArray <- v .: "projects"
                 projectsList <- mapM parseJSON projectArray
                 return $ Projects projectsList
-        parseJSON _          = fail "Unable to parse Projects JSON Object"
+        parseJSON _          = fail "Unable to parse Projects JSON Object."
 
 -- | A Redmine Issue
 data Issue = Issue
@@ -145,7 +148,7 @@ instance FromJSON Issue where
                       <*> v .: "updated_on"
                       <*> v .:? "start_date"
                       <*> v .:? "due_date"
-        parseJSON _          = fail "Unable to parse Issue JSON Object"
+        parseJSON _          = fail "Unable to parse Issue JSON Object."
 
 instance FromJSON Issues where
         parseJSON (Object v) = do
@@ -157,7 +160,7 @@ instance FromJSON Issues where
                 issuesList  <- mapM (\i -> parseJSON $ object ["issue" .= Object i])
                                    issueArray
                 return $ Issues issuesList
-        parseJSON _          = fail "Unable to parse Issues JSON Object"
+        parseJSON _          = fail "Unable to parse Issues JSON Object."
 
 -- | An Issue Status
 data Status = Status
@@ -176,14 +179,14 @@ instance FromJSON Status where
                    <*> v .: "name"
                    <*> v .:? "is_closed" .!= False
                    <*> v .:? "is_default" .!= False
-        parseJSON _          = fail "Unable to parse Status JSON Object"
+        parseJSON _          = fail "Unable to parse Status JSON Object."
 
 instance FromJSON Statuses where
         parseJSON (Object v) = do
                 statusArray <- v .: "issue_statuses"
                 statusList  <- mapM parseJSON statusArray
                 return $ Statuses statusList
-        parseJSON _          = fail "Unable to parse Statuses JSON Object"
+        parseJSON _          = fail "Unable to parse Statuses JSON Object."
 
 -- | A Redmine User
 data User = User
@@ -231,7 +234,7 @@ instance FromJSON Versions where
                 versionList  <- mapM (\i -> parseJSON $ object ["version" .= Object i])
                                    versionArray
                 return $ Versions versionList
-        parseJSON _          = fail "Unable to parse Versions JSON Object"
+        parseJSON _          = fail "Unable to parse Versions JSON Object."
 
 -- | A Time Entry Activity
 data Activity = Activity
@@ -255,7 +258,7 @@ instance FromJSON Activities where
                 activityArray <- v .: "time_entry_activities"
                 activityList  <- mapM parseJSON activityArray
                 return $ Activities activityList
-        parseJSON _          = fail "Unable to parse Activities JSON Object"
+        parseJSON _          = fail "Unable to parse Activities JSON Object."
 
 -- | A Redmine Tracker
 data Tracker = Tracker
@@ -277,7 +280,7 @@ instance FromJSON Trackers where
                 trackerArray <- v .: "trackers"
                 trackerList  <- mapM parseJSON trackerArray
                 return $ Trackers trackerList
-        parseJSON _          = fail "Unable to parse Trackers JSON Object"
+        parseJSON _          = fail "Unable to parse Trackers JSON Object."
 
 -- | A Redmine Issue Priority
 data Priority = Priority
@@ -301,7 +304,28 @@ instance FromJSON Priorities where
                 array       <- v .: "issue_priorities"
                 list        <- mapM parseJSON array
                 return $ Priorities list
-        parseJSON _         = fail "Unable to parse Issue Priorities JSON Object"
+        parseJSON _         = fail "Unable to parse Issue Priorities JSON Object."
+
+-- | A Redmine Issue Category
+data Category = Category
+        { categoryId            :: Integer
+        , categoryName          :: String
+        } deriving (Show)
+
+-- | A List of Categories
+newtype Categories = Categories [Category]
+
+instance FromJSON Category where
+        parseJSON (Object v) =
+            Category <$> v .: "id"
+                     <*> v .: "name"
+        parseJSON _          = fail "Unable to parse Issue Category JSON Object."
+
+instance FromJSON Categories where
+        parseJSON (Object v) = do
+                array       <- v .: "issue_categories"
+                Categories <$> mapM parseJSON array
+        parseJSON _         = fail "Unable to parse Issue Categories JSON Object."
 
 -- Utils
 -- | Retrieve the 'name' attribute of an Object nested in an Object.

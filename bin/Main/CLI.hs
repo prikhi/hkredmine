@@ -36,6 +36,7 @@ data HKRedmine
         = Use           { accountName       :: String }
         | Status        { }
         | Fields        { }
+        | Categories    { projectIdent      :: String }
         | Projects      { }
         | Project       { projectIdent      :: String }
         | Issue         { issueId           :: Integer }
@@ -77,6 +78,7 @@ dispatch m = case m of
         Use a           -> liftIO $ switchAccount a
         Status          -> liftIO printStatus
         Fields          -> printFields
+        Categories p    -> printCategories p
         Projects        -> printProjects
         Project p       -> printProject p
         Issue i         -> printIssue i
@@ -98,7 +100,7 @@ dispatch m = case m of
 -- | Available usage modes
 hkredmine :: Annotate Ann
 hkredmine = modes_
-        [ use, status, fields
+        [ use, status, fields, categories
         , project, projects
         , issue, issues, newissue, close
         , startwork, stopwork, pause, resume, abort
@@ -110,9 +112,9 @@ hkredmine = modes_
 
 
 -- | Default options for modes
-use, status, fields, projects, project, issue, issues, newissue, close,
-    startwork, stopwork, pause, resume, abort, watch, unwatch, versions,
-    version, nextversion :: Annotate Ann
+use, status, fields, categories, projects, project, issue, issues,
+    newissue, close, startwork, stopwork, pause, resume, abort, watch,
+    unwatch, versions, version, nextversion :: Annotate Ann
 use         = record Use { accountName = def }
             [ accountName := def
                           += argPos 0
@@ -138,7 +140,13 @@ status      = record Status {} []
               += auto
 
 fields      = record Fields {} []
-              += help "Print the available field values(Statuses, Priorities, etc.)."
+              += help "Print available field values(Statuses, Priorities, etc.)."
+
+categories  = record Categories { projectIdent = def }
+            [ projectIdent  := def
+                            += argPos 0 += typ "PROJECTIDENT"
+            ] += help "Print a Project's Categories."
+
 
 projects    = record Projects {} []
               += help "Print all Projects."
