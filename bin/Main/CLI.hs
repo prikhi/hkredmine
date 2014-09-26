@@ -50,6 +50,15 @@ data HKRedmine
                         , sortByField       :: String
                         , limitTo           :: Integer
                         , issueOffset       :: Integer }
+        | Watched       { projectIdent      :: String
+                        , trackerIdent      :: String
+                        , statusIdent       :: String
+                        , priorityIdent     :: String
+                        , categoryIdent     :: String
+                        , assignedTo        :: String
+                        , sortByField       :: String
+                        , limitTo           :: Integer
+                        , issueOffset       :: Integer }
         | NewIssue      { projectIdent      :: String
                         , trackerIdent      :: String
                         , statusIdent       :: String
@@ -86,6 +95,8 @@ dispatch m = case m of
         Project p       -> printProject p
         Issue i         -> printIssue i
         i@(Issues {})   -> argsToIssueFilter i >>= printIssues
+        i@(Watched {})  -> argsToIssueFilter i >>=
+                           printIssues . (++ [ ("watcher_id", "me" ) ])
         i@(NewIssue {}) -> argsToIssueObject i >>= createNewIssue
         Close i         -> closeIssue i
         StartWork i     -> startTimeTracking i
@@ -105,7 +116,7 @@ hkredmine :: Annotate Ann
 hkredmine = modes_
         [ use, status, fields, categories
         , project, projects
-        , issue, issues, newissue, close
+        , issue, issues, watched, newissue, close
         , startwork, stopwork, pause, resume, abort
         , watch, unwatch
         , version, versions, nextversion ]
@@ -115,7 +126,7 @@ hkredmine = modes_
 
 
 -- | Default options for modes
-use, status, fields, categories, projects, project, issue, issues,
+use, status, fields, categories, projects, project, issue, issues, watched,
     newissue, close, startwork, stopwork, pause, resume, abort, watch,
     unwatch, versions, version, nextversion :: Annotate Ann
 use         = record Use { accountName = def }
@@ -250,6 +261,14 @@ issues      = record Issues { projectIdent = def, statusIdent = def
     , "hkredmine issues -n 50 -p accounting-app -S priority"
     , "hkredmine issues --status=open -t Bug"
     ]
+
+watched     = record Watched { projectIdent = def, statusIdent = def
+                             , trackerIdent = def, priorityIdent = def
+                             , categoryIdent = def, assignedTo = def
+                             , sortByField = def, limitTo = def
+                             , issueOffset = def } []
+              += help "Filter and Print your Watched Issues."
+              += groupname "Issues"
 
 newissue    = record NewIssue { projectIdent = def, trackerIdent = def
                               , statusIdent = def, priorityIdent = def
@@ -464,6 +483,16 @@ argsToIssueFilter i@(Issues {}) = do
             , ("limit", show $ limitTo i)
             , ("offset", show $ issueOffset i) ]
         where packIt (s1, s2)   = (s1, BC.pack s2)
+argsToIssueFilter w@(Watched {})    = argsToIssueFilter Issues
+            { projectIdent          = projectIdent w
+            , trackerIdent          = trackerIdent w
+            , statusIdent           = statusIdent w
+            , priorityIdent         = priorityIdent w
+            , categoryIdent         = categoryIdent w
+            , assignedTo            = assignedTo w
+            , sortByField           = sortByField w
+            , limitTo               = limitTo w
+            , issueOffset           = issueOffset w }
 argsToIssueFilter _ = redmineLeft "Tried applying an issue filter to non-issue command."
 
 -- | Transform the arguments of the NewIssue mode into a JSON object for
