@@ -5,6 +5,7 @@ A Redmine CLI client written in Haskell.
 
 This is not a fully featured API client, but one built for a specific workflow.
 
+
 Quickstart
 -----------
 
@@ -18,6 +19,7 @@ Quickstart
 8. Start tracking time on an issue: `hkredmine startwork <issue_id>`
 9. Stop tracking time and create a new time entry: `hkredmine stopwork`
 10. Learn how to use everything else: `hkredmine --help`
+
 
 Installation
 -------------
@@ -136,6 +138,36 @@ Vim user's may be interested in [this syntax plugin](vim-redminewiki). We
 follow the `*.redmine` extension convention.
 
 
+Viewing Things
+---------------
+
+You can use the `projects` command to list all Projects and the `project`
+command to list one Project's details:
+
+    hkredmine projects
+    hkredmine project my-projects-identifier
+
+You can use the `issues`, `watched` and `version` commands to show Issues:
+
+    hkredmine issues --project my-project --status "In Progress"
+    hkredmine watched --sort=priority
+    hkredmine version 12
+
+And the `issue` command to show details of a single Issue:
+
+    hkredmine issue 42
+
+To view a Project's available Versions, use `versions`:
+
+    hkredmine versions my-projects-identifier
+
+You can see the available Issue Statuses, Priorities, Categories or Time Entry
+Activites using the `fields` and `categories` commands:
+
+    hkredmine fields
+    hkredmine categories a-project-with-categories
+
+
 Time Tracking
 --------------
 
@@ -156,6 +188,7 @@ When you're ready to submit a new time entry, run the `stopwork` command:
 You can skip the prompts by passing parameters on the command line:
 
     hkredmine stopwork --activity=Development --comment="Writing @stopwork@ documentation"
+
 
 Closing Issues
 ---------------
