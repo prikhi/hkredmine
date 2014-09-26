@@ -129,6 +129,9 @@ with asynchronous editors like `gvim`. You could make an alias:
 
     alias hkredmine="EDITOR=vim hkredmine"
 
+Vim user's may be interested in [this syntax plugin](vim-redminewiki). We
+follow the `*.redmine` extension convention.
+
 
 Time Tracking
 --------------
@@ -212,3 +215,6 @@ following:
     # Fix the issue and mark as resolved.
     hkredmine stopwork --activity=Development comment="Fixed thing, waiting on confirmation."
     hkredmine watch 154
+
+
+[vim-redminewiki]: https://github.com/s3rvac/vim-syntax-redminewiki/
