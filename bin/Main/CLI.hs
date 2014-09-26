@@ -16,6 +16,7 @@ import qualified Data.ByteString.Char8 as BC    (pack)
 import qualified Data.ByteString.Lazy as LB     (ByteString)
 
 
+import Control.Applicative      ((<$>))
 import Control.Monad            (when)
 import Control.Monad.IO.Class   (liftIO)
 import Data.Aeson               ((.=), object, encode, FromJSON)
@@ -44,6 +45,7 @@ data HKRedmine
                         , trackerIdent      :: String
                         , statusIdent       :: String
                         , priorityIdent     :: String
+                        , categoryIdent     :: String
                         , assignedTo        :: String
                         , sortByField       :: String
                         , limitTo           :: Integer
@@ -52,6 +54,7 @@ data HKRedmine
                         , trackerIdent      :: String
                         , statusIdent       :: String
                         , priorityIdent     :: String
+                        , categoryIdent     :: String
                         , subject           :: String
                         , description       :: String
                         , versionId         :: Integer
@@ -166,41 +169,49 @@ issue       = record Issue { issueId = def }
 
 issues      = record Issues { projectIdent = def, statusIdent = def
                             , trackerIdent = def, priorityIdent = def
-                            , assignedTo = def, sortByField = def
-                            , limitTo = def, issueOffset = def }
+                            , categoryIdent = def, assignedTo = def
+                            , sortByField = def, limitTo = def
+                            , issueOffset = def }
             [ projectIdent  := def
                             += typ "PROJECTIDENT"
                             += name "project"
                             += name "p"
-                            += groupname "filter"
+                            += groupname "Filter"
                             += explicit
                             += help "A Project's Identifier or ID"
             , statusIdent   := "open"
                             += typ "STATUS"
                             += name "status"
                             += name "s"
-                            += groupname "filter"
+                            += groupname "Filter"
                             += explicit
                             += help "A Status Name. open and closed are also valid choices"
             , trackerIdent  := def
                             += typ "TRACKERNAME"
                             += name "tracker"
                             += name "t"
-                            += groupname "filter"
+                            += groupname "Filter"
                             += explicit
                             += help "A Tracker Name"
             , priorityIdent := def
                             += typ "PRIORITYNAME"
                             += name "priority"
                             += name "i"
-                            += groupname "filter"
+                            += groupname "Filter"
                             += explicit
                             += help "A Priority Name"
+            , categoryIdent := def
+                            += typ "CATEGORYNAME"
+                            += name "category"
+                            += name "c"
+                            += groupname "Filter"
+                            += explicit
+                            += help "A Category Name. Requires filtering by Project"
             , assignedTo    := ""
                             += opt ("me" :: String)
                             += name "userid"
                             += name "u"
-                            += groupname "filter"
+                            += groupname "Filter"
                             += explicit
                             += help "A User ID(defaults to yours)"
             , issueOffset   := 0
@@ -208,14 +219,14 @@ issues      = record Issues { projectIdent = def, statusIdent = def
                             += name "offset"
                             += name "o"
                             += explicit
-                            += groupname "range"
+                            += groupname "Range"
                             += help "Start listing Issues at this row number"
             , sortByField   := "updated_on"
                             += typ "FIELD"
                             += name "sort"
                             += name "S"
                             += explicit
-                            += groupname "sort"
+                            += groupname "Sort"
                             += help ("Comma-separated columns to sort by. " ++
                                      "Valid options are project, priority, " ++
                                      "status, category, updated_on and " ++
@@ -226,7 +237,7 @@ issues      = record Issues { projectIdent = def, statusIdent = def
                             += name "n"
                             += name "l"
                             += explicit
-                            += groupname "range"
+                            += groupname "Range"
                             += help "Limit the number of Issues to show"
             ] += help "Filter and Print Issues."
               += groupname "Issues"
@@ -242,9 +253,9 @@ issues      = record Issues { projectIdent = def, statusIdent = def
 
 newissue    = record NewIssue { projectIdent = def, trackerIdent = def
                               , statusIdent = def, priorityIdent = def
-                              , isNotMine = def, subject = def
-                              , description = def, versionId = def
-                              , editDescript = False }
+                              , categoryIdent = def, isNotMine = def
+                              , subject = def, description = def
+                              , versionId = def, editDescript = False }
             [ projectIdent  := def
                             += typ "PROJECTIDENT"
                             += name "project"
@@ -287,6 +298,13 @@ newissue    = record NewIssue { projectIdent = def, trackerIdent = def
                             += explicit
                             += groupname "Optional"
                             += help "A Priority Name"
+            , categoryIdent := def
+                            += typ "CATEGORYNAME"
+                            += name "category"
+                            += name "c"
+                            += groupname "Optional"
+                            += explicit
+                            += help "A Category Name"
             , isNotMine     := def
                             += name "not-mine"
                             += name "n"
@@ -415,6 +433,15 @@ argsToIssueFilter :: HKRedmine -> Redmine IssueFilter
 argsToIssueFilter i@(Issues {}) = do
         filterTracker   <- grabFromName R.getTrackerFromName "Tracker" $ trackerIdent i
         filterPriority  <- grabFromName R.getPriorityFromName "Priority" $ priorityIdent i
+        filterCategory  <- case (categoryIdent i, projectIdent i) of
+                ("", "")    -> return ""
+                ("", _)     -> return ""
+                (_, "")     -> redmineLeft $ "You must filter by Project if " ++
+                                              "you want to filter by Category."
+                (c, p)      -> do proj <- R.getProjectFromIdent p
+                                  show . R.categoryId <$>
+                                         grabFromName (R.getCategoryFromName $ R.projectId proj)
+                                                      "Category" c
         filterStatus    <- R.getStatusFromName $ statusIdent i
         when (isNothing filterStatus && statusIdent i `notElem` ["", "open", "closed", "*"])
            $ redmineLeft "Not a valid Status name."
@@ -431,6 +458,8 @@ argsToIssueFilter i@(Issues {}) = do
                     | priorityIdent i /= "" ] ++
             [ ("assigned_to_id", assignedTo i)
                     | assignedTo i /= "" ] ++
+            [ ("category_id", filterCategory)
+                    | filterCategory /= "" ] ++
             [ ("sort", sortByField i)
             , ("limit", show $ limitTo i)
             , ("offset", show $ issueOffset i) ]
@@ -447,6 +476,8 @@ argsToIssueObject i@(NewIssue {})   = do
         validTracker    <- grabFromName R.getTrackerFromName "Tracker" $ trackerIdent i
         validPriority   <- grabFromName R.getPriorityFromName "Priority" $ priorityIdent i
         validStatus     <- grabFromName R.getStatusFromName "Status" $ statusIdent i
+        validCategory   <- grabFromName (R.getCategoryFromName $ R.projectId validProject)
+                                        "Category" $ categoryIdent i
         currentUser     <- R.getCurrentUser
         actualDescript  <- if editDescript i then liftIO openEditorAndGetContents
                            else return $ description i
@@ -463,6 +494,8 @@ argsToIssueObject i@(NewIssue {})   = do
                         | not (isNotMine i) ] ++
                 [ "fixed_version_id" .= versionId i
                         | versionId i /= 0 ] ++
+                [ "category_id" .= show (R.categoryId validCategory)
+                        | categoryIdent i  /= "" ] ++
                 [ "description" .= actualDescript
                         | actualDescript /= "" ]
                 )
