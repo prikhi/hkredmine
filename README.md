@@ -138,6 +138,18 @@ Vim user's may be interested in [this syntax plugin](vim-redminewiki). We
 follow the `*.redmine` extension convention.
 
 
+Updating Issues
+----------------
+
+You can modify existing Issues using the `update` command:
+
+    hkredmine update 77 --priority High -t Bug --category=UI -n "Fix Category"
+
+You can pass the `-e` flag to edit the description in your `$EDITOR`:
+
+    hkredmine update 31 --priority Immediate -s "A NU Start" -e
+
+
 Viewing Things
 ---------------
 
@@ -262,12 +274,7 @@ At v1.0 you should be able to do the following:
     hkredmine watch 154
 
 Still need to implement:
-* watched
-* details
-* update
-* close
 * delete
-* categories
 
 Maybe eventually:
 * newproject

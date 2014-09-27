@@ -69,6 +69,17 @@ data HKRedmine
                         , versionId         :: Integer
                         , editDescript      :: Bool
                         , isNotMine         :: Bool }
+        | Update        { issueId           :: Integer
+                        , projectIdent      :: String
+                        , trackerIdent      :: String
+                        , statusIdent       :: String
+                        , priorityIdent     :: String
+                        , categoryIdent     :: String
+                        , subject           :: String
+                        , description       :: String
+                        , versionId         :: Integer
+                        , editDescript      :: Bool
+                        , notes             :: String }
         | Close         { issueId           :: Integer }
         | StartWork     { issueId           :: Integer }
         | StopWork      { activityType      :: Maybe String
@@ -98,6 +109,8 @@ dispatch m = case m of
         i@(Watched {})  -> argsToIssueFilter i >>=
                            printIssues . (++ [ ("watcher_id", "me" ) ])
         i@(NewIssue {}) -> argsToIssueObject i >>= createNewIssue
+        i@(Update {})   -> argsToIssueObject i >>= R.updateIssue (issueId i) >>
+                           liftIO (putStrLn $ "Updated Issue #" ++ show (issueId i) ++ ".")
         Close i         -> closeIssue i
         StartWork i     -> startTimeTracking i
         StopWork a c    -> stopTimeTracking a c
@@ -116,7 +129,7 @@ hkredmine :: Annotate Ann
 hkredmine = modes_
         [ use, status, fields, categories
         , project, projects
-        , issue, issues, watched, newissue, close
+        , issue, issues, watched, newissue, update, close
         , startwork, stopwork, pause, resume, abort
         , watch, unwatch
         , version, versions, nextversion ]
@@ -127,8 +140,8 @@ hkredmine = modes_
 
 -- | Default options for modes
 use, status, fields, categories, projects, project, issue, issues, watched,
-    newissue, close, startwork, stopwork, pause, resume, abort, watch,
-    unwatch, versions, version, nextversion :: Annotate Ann
+    newissue, update, close, startwork, stopwork, pause, resume, abort,
+    watch, unwatch, versions, version, nextversion :: Annotate Ann
 use         = record Use { accountName = def }
             [ accountName := def
                           += argPos 0
@@ -356,6 +369,39 @@ newissue    = record NewIssue { projectIdent = def, trackerIdent = def
     , "EDITOR=vim hkredmine newissue -e ..."
     ]
 
+update      = record Update { issueId = def, projectIdent = def
+                            , trackerIdent = def, statusIdent = def
+                            , priorityIdent = def, categoryIdent = def
+                            , subject = def, description = def
+                            , versionId = def, editDescript = False
+                            , notes = def}
+            [ issueId       := def
+                            += argPos 0 += typ "ISSUEID"
+            , projectIdent  := def
+                            += typ "PROJECTIDENT"
+                            += name "project"
+                            += name "p"
+                            += groupname "Optional"
+                            += explicit
+                            += help "A Project's Identifier"
+            , subject       := def
+                            += typ "STRING"
+                            += name "subject"
+                            += name "s"
+                            += groupname "Optional"
+                            += explicit
+                            += help "The Issue's Subject"
+            , notes         := def
+                            += typ "STRING"
+                            += name "comment"
+                            += name "n"
+                            += groupname "Optional"
+                            += explicit
+                            += help "A Comment about the Update"
+            ] += help "Update an New Issue."
+              += groupname "Issues"
+
+
 close       = record Close { issueId = def }
             [ issueId       := def
                             += argPos 0 += typ "ISSUEID"
@@ -506,9 +552,9 @@ argsToIssueObject i@(NewIssue {})   = do
         validPriority   <- grabFromName R.getPriorityFromName "Priority" $ priorityIdent i
         validStatus     <- grabFromName R.getStatusFromName "Status" $ statusIdent i
         validCategory   <- grabFromName (R.getCategoryFromName $ R.projectId validProject)
-                                        "Category" $ categoryIdent i
+                                         "Category" $ categoryIdent i
         currentUser     <- R.getCurrentUser
-        actualDescript  <- if editDescript i then liftIO openEditorAndGetContents
+        actualDescript  <- if editDescript i then liftIO getTextFromEditor
                            else return $ description i
         return . encode $ object [ "issue" .= object (
                 [ "project_id" .= show (R.projectId validProject)
@@ -529,6 +575,39 @@ argsToIssueObject i@(NewIssue {})   = do
                         | actualDescript /= "" ]
                 )
             ]
+argsToIssueObject u@(Update {})     = do
+        i               <- R.getIssue $ issueId u
+        validProject    <- if projectIdent u /= ""
+                           then R.getProjectFromIdent $ projectIdent u
+                           else R.getProjectFromIdent . show $ R.issueProjectId i
+        validTracker    <- grabFromName R.getTrackerFromName "Tracker" $ trackerIdent u
+        validPriority   <- grabFromName R.getPriorityFromName "Priority" $ priorityIdent u
+        validStatus     <- grabFromName R.getStatusFromName "Status" $ statusIdent u
+        validCategory   <- grabFromName (R.getCategoryFromName $ R.projectId validProject)
+                                         "Category" $ categoryIdent u
+        actualDescript  <- if editDescript u
+                           then liftIO $ editTextInEditor $ R.issueDescription i
+                           else return $ description u
+        return . encode $ object [ "issue" .= object (
+                [ "project_id" .= show (R.projectId validProject) ] ++
+                [ "subject" .= subject u
+                        | subject u /= "" ] ++
+                [ "tracker_id" .= show (R.trackerId validTracker)
+                        | trackerIdent u /= "" ] ++
+                [ "priority_id" .= show (R.priorityId validPriority)
+                        | priorityIdent u /= "" ] ++
+                [ "status_id" .= show (R.statusId validStatus)
+                        | statusIdent u /= "" ] ++
+                [ "fixed_version_id" .= versionId u
+                        | versionId u /= 0 ] ++
+                [ "category_id" .= show (R.categoryId validCategory)
+                        | categoryIdent u  /= "" ] ++
+                [ "description" .= actualDescript
+                        | actualDescript /= "" ] ++
+                [ "notes" .= notes u
+                        | notes u /= "" ]
+                )
+            ]
 argsToIssueObject _ = redmineLeft "The wrong command tried parsing newissues arguments."
 
 -- | Get an item from it's name or return an error.
@@ -539,15 +618,24 @@ grabFromName grab item itemName     = do
              redmineLeft $ "Not a valid " ++ item ++ " name."
         return $ fromJust mayValue
 
+
 -- | Open a temporary file with the user's editor and return it's final
 -- contents.
-openEditorAndGetContents :: IO String
-openEditorAndGetContents         = do
-        editor  <- getEnv "EDITOR"
+getTextFromEditor :: IO String
+getTextFromEditor                   = editTextInEditor "\n"
+
+-- | Write a string to a Temporary File, open the file in the $EDITOR and
+-- return the final contents.
+editTextInEditor :: String -> IO String
+editTextInEditor s              =
         withSystemTempDirectory "hkredmine" $ \dir -> do
             fn  <- withTempFile dir "hkr.redmine" (\fn' fh -> hClose fh >> return fn')
-            writeFile fn "\n"
-            _           <- callProcess editor [fn]
-            contents    <- readFile fn
-            removeFile fn
-            return contents
+            writeFile fn s
+            contents <- openInEditorAndRead fn
+            removeFile fn >> return contents
+
+-- | Open a file in the User's $EDITOR, read and return the contents
+-- afterwards.
+openInEditorAndRead :: FilePath -> IO String
+openInEditorAndRead fn              = getEnv "EDITOR" >>= flip callProcess [fn]
+                                   >> readFile fn

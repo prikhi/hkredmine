@@ -111,6 +111,7 @@ instance FromJSON Projects where
 -- | A Redmine Issue
 data Issue = Issue
         { issueId            :: IssueId
+        , issueProjectId     :: ProjectId
         , issueTracker       :: String
         , issueStatus        :: String
         , issuePriority      :: String
@@ -134,6 +135,7 @@ instance FromJSON Issue where
         parseJSON (Object r) = do
                 (Object v) <- r .: "issue"
                 Issue <$> v .: "id"
+                      <*> v `grabId` "project"
                       <*> v `grabName` "tracker"
                       <*> v `grabName` "status"
                       <*> v `grabName` "priority"
