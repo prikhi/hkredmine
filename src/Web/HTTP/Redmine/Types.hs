@@ -102,10 +102,7 @@ instance FromJSON Project where
         parseJSON _          = fail "Unable to parse Project JSON Object."
 
 instance FromJSON Projects where
-        parseJSON (Object v) = do
-                projectArray <- v .: "projects"
-                projectsList <- mapM parseJSON projectArray
-                return $ Projects projectsList
+        parseJSON (Object v) = Projects <$> parseListInObject v "projects"
         parseJSON _          = fail "Unable to parse Projects JSON Object."
 
 -- | A Redmine Issue
@@ -153,15 +150,7 @@ instance FromJSON Issue where
         parseJSON _          = fail "Unable to parse Issue JSON Object."
 
 instance FromJSON Issues where
-        parseJSON (Object v) = do
-                issueArray  <- v .: "issues"
-                -- Individual issues from a Redmine instance are wrapped in
-                -- an Object with a single "issue" key. To parse the list
-                -- of Issues, we need to emulate this before we parse each
-                -- individual Issue.
-                issuesList  <- mapM (\i -> parseJSON $ object ["issue" .= Object i])
-                                   issueArray
-                return $ Issues issuesList
+        parseJSON (Object v) = Issues <$> wrapObjectParseList v "issues" "issue"
         parseJSON _          = fail "Unable to parse Issues JSON Object."
 
 -- | An Issue Status
@@ -184,10 +173,7 @@ instance FromJSON Status where
         parseJSON _          = fail "Unable to parse Status JSON Object."
 
 instance FromJSON Statuses where
-        parseJSON (Object v) = do
-                statusArray <- v .: "issue_statuses"
-                statusList  <- mapM parseJSON statusArray
-                return $ Statuses statusList
+        parseJSON (Object v) = Statuses <$> parseListInObject v "issue_statuses"
         parseJSON _          = fail "Unable to parse Statuses JSON Object."
 
 -- | A Redmine User
@@ -227,15 +213,7 @@ instance FromJSON Version where
         parseJSON _          = fail "Unable to parse Version JSON Object."
 
 instance FromJSON Versions where
-        parseJSON (Object v) = do
-                versionArray <- v .: "versions"
-                -- Individual versions from a Redmine instance are wrapped
-                -- in an Object with a single "version" key. To parse the
-                -- list we need to emulate this before we parse each
-                -- individual version
-                versionList  <- mapM (\i -> parseJSON $ object ["version" .= Object i])
-                                   versionArray
-                return $ Versions versionList
+        parseJSON (Object v) = Versions <$> wrapObjectParseList v "versions" "version"
         parseJSON _          = fail "Unable to parse Versions JSON Object."
 
 -- | A Time Entry Activity
@@ -256,10 +234,7 @@ instance FromJSON Activity where
         parseJSON _          = fail "Unable to parse Activity JSON Object."
 
 instance FromJSON Activities where
-        parseJSON (Object v) = do
-                activityArray <- v .: "time_entry_activities"
-                activityList  <- mapM parseJSON activityArray
-                return $ Activities activityList
+        parseJSON (Object v) = Activities <$> parseListInObject v "time_entry_activities"
         parseJSON _          = fail "Unable to parse Activities JSON Object."
 
 -- | A Redmine Tracker
@@ -278,17 +253,14 @@ instance FromJSON Tracker where
         parseJSON _          = fail "Unable to parse Tracker JSON Object."
 
 instance FromJSON Trackers where
-        parseJSON (Object v) = do
-                trackerArray <- v .: "trackers"
-                trackerList  <- mapM parseJSON trackerArray
-                return $ Trackers trackerList
+        parseJSON (Object v) = Trackers <$> parseListInObject v "trackers"
         parseJSON _          = fail "Unable to parse Trackers JSON Object."
 
 -- | A Redmine Issue Priority
 data Priority = Priority
-        { priorityId             :: Integer
-        , priorityName           :: String
-        , priorityIsDefault      :: Bool
+        { priorityId            :: Integer
+        , priorityName          :: String
+        , priorityIsDefault     :: Bool
         } deriving (Show)
 
 -- | A List of Priorities
@@ -324,10 +296,8 @@ instance FromJSON Category where
         parseJSON _          = fail "Unable to parse Issue Category JSON Object."
 
 instance FromJSON Categories where
-        parseJSON (Object v) = do
-                array       <- v .: "issue_categories"
-                Categories <$> mapM parseJSON array
-        parseJSON _         = fail "Unable to parse Issue Categories JSON Object."
+        parseJSON (Object v) = Categories <$> parseListInObject v "issue_categories"
+        parseJSON _          = fail "Unable to parse Issue Categories JSON Object."
 
 -- Utils
 -- | Retrieve the 'name' attribute of an Object nested in an Object.
@@ -344,3 +314,17 @@ obj `maybeGrabName` attr    = do attrObj <- obj .:? attr
                                      Nothing         -> return Nothing
                                      Just (Object o) -> fmap Just $ o .: "name"
                                      Just _          -> return Nothing
+
+-- | Parse an Object's attribute into a list
+parseListInObject :: FromJSON a => AT.Object -> T.Text -> AT.Parser [a]
+parseListInObject o attr    = o .: attr >>= mapM parseJSON
+
+-- | Given an Object with an attribute that is a list, wrap each item in
+-- the list in a new object before parsing each item in the list.
+wrapObjectParseList :: FromJSON a
+                    => AT.Object        -- ^ The top level object
+                    -> T.Text           -- ^ The attribute name of the array
+                    -> T.Text           -- ^ The attribute to wrap the item in
+                    -> AT.Parser [a]    -- ^ The parsed values
+wrapObjectParseList o a n   = o .: a >>=
+                              mapM (\i -> parseJSON $ object [n .= Object i])
