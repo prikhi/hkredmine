@@ -223,7 +223,8 @@ startTimeTracking i     = do
 stopTimeTracking :: Maybe String -> Maybe String -> Redmine ()
 stopTimeTracking mayActivity mayComment = do
         timeSpent   <- liftIO getTrackedTime
-        issue       <- liftIO getTrackedIssue
+        issueID     <- liftIO getTrackedIssue
+        issue       <- getIssue issueID
         activities  <- getActivities
         let activityNames = map activityName activities
             activityIds   = map (show . activityId) activities
@@ -237,13 +238,14 @@ stopTimeTracking mayActivity mayComment = do
                              return mayComment
         confirmed   <- liftIO . confirmWithInfo $
                             [ "\nCreate the following Time Entry?"
+                            , "Issue:   \t" ++ "#" ++ show issueID ++ " - " ++ issueSubject issue
                             , "Activity:\t" ++ activity
                             , "Comment: \t" ++ comment
                             , "Hours:   \t" ++ printf "%.2f" (diffTimeToHours timeSpent)
                             ]
         timeActivity <- fromJust <$> getActivityFromName activity
         if   confirmed
-        then addTimeEntry issue timeSpent timeActivity comment >>
+        then addTimeEntry issueID timeSpent timeActivity comment >>
              liftIO (mapM_ removeAppFile [ "issue", "start_time", "pause_time" ]) >>
              liftIO (putStrLn "The time entry was successfully created.")
         else redmineLeft "Time entry submission cancelled."
