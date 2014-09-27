@@ -93,14 +93,18 @@ The following commands are currently available:
     Commands:
         use          Switch to a different redmine account.
         [status]     Print the current Account, Issue and Tracked Time.
-        fields       Print the available field values(Statuses, Priorities, etc.).
+        fields       Print available field values(Statuses, Priorities, etc.).
+        categories   Print a Project's Categories.
     Projects:
         project      Print the details of a Project.
         projects     Print all Projects.
     Issues:
         issue        Print the details of an Issue.
         issues       Filter and Print Issues.
+        watched      Filter and Print your Watched Issues.
         newissue     Create a New Issue.
+        update       Update an New Issue.
+        close        Close an Issue.
         watch        Watch an Issue.
         unwatch      Unwatch an Issue.
     Time Tracking:
