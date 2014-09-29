@@ -251,10 +251,10 @@ issues      = record Issues { projectIdent = def, statusIdent = def
                             += name "S"
                             += explicit
                             += groupname "Sort"
-                            += help ("Comma-separated columns to sort by. " ++
-                                     "Valid options are project, priority, " ++
-                                     "status, category, updated_on and " ++
-                                     "created_on" )
+                            += help ("Comma-separated columns to sort by. Append " ++
+                                     "':desc' to reverse the sorting. Valid options " ++
+                                     "are project, priority, status, category, " ++
+                                     "updated_on and created_on" )
             , limitTo       := 20
                             += typ "INT"
                             += name "limit"
@@ -273,6 +273,7 @@ issues      = record Issues { projectIdent = def, statusIdent = def
     , "hkredmine issues -u"
     , "hkredmine issues -n 50 -p accounting-app -S priority"
     , "hkredmine issues --status=open -t Bug"
+    , "hkredmine issues -S priority:desc"
     ]
 
 watched     = record Watched { projectIdent = def, statusIdent = def
