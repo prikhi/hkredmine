@@ -144,8 +144,8 @@ createNewIssue postData = do
 
 -- | Close an Issue, set it's Done Ratio to 100 and if it's Due Date is not
 -- set, set it to today.
-closeIssue :: IssueId -> Redmine ()
-closeIssue i            = do
+closeIssue :: IssueId -> Maybe String -> Redmine ()
+closeIssue i ms         = do
         liftIO . putStrLn $ "Closing Issue #" ++ show i ++ "..."
         issue           <- getIssue i
         closedStatus    <- getStatusFromName "Closed"
@@ -163,7 +163,9 @@ closeIssue i            = do
                         , [ "done_ratio" .= (100 :: Integer)
                                 | updateDone ]
                         , [ "notes" .= ("Closing Issue." :: String)
-                                | doSomething ]
+                                | doSomething && isNothing ms ]
+                        , [ "notes" .= fromJust ms
+                                | doSomething && isJust ms ]
                         ]) ]
         void $ updateIssue i putData
         whenPrint updateStat "Issue status changed to Closed."

@@ -216,6 +216,11 @@ When Issues are considered finished, you can run the `close` command:
 This will change the Issue's status to `Closed`, the done ratio to `100%` and
 the due date to today(but only if it was not set).
 
+You can specify a comment to leave when updating the Issue using the `comment`
+flag:
+
+    hkredmine close 69 --comment "Hotfix pushed to prod"
+
 
 Workflow
 ---------
@@ -260,7 +265,7 @@ At v1.0 you should be able to do the following:
 
     # We've finished, let's log our time and close the issue
     hkredmine stopwork --activity=Support --comment="Help Y with X."
-    hkredmine update 280 --status=Closed --due="$(date -I)"
+    hkredmine close 280
 
     # Going back to the old issue
     hkredmine use sleepanarchy

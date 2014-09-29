@@ -80,7 +80,8 @@ data HKRedmine
                         , versionId         :: Integer
                         , editDescript      :: Bool
                         , notes             :: String }
-        | Close         { issueId           :: Integer }
+        | Close         { issueId           :: Integer
+                        , comment           :: Maybe String }
         | StartWork     { issueId           :: Integer }
         | StopWork      { activityType      :: Maybe String
                         , timeComment       :: Maybe String }
@@ -111,7 +112,7 @@ dispatch m = case m of
         i@(NewIssue {}) -> argsToIssueObject i >>= createNewIssue
         i@(Update {})   -> argsToIssueObject i >>= R.updateIssue (issueId i) >>
                            liftIO (putStrLn $ "Updated Issue #" ++ show (issueId i) ++ ".")
-        Close i         -> closeIssue i
+        Close i s       -> closeIssue i s
         StartWork i     -> startTimeTracking i
         StopWork a c    -> stopTimeTracking a c
         Pause           -> liftIO pauseTimeTracking
@@ -403,9 +404,15 @@ update      = record Update { issueId = def, projectIdent = def
               += groupname "Issues"
 
 
-close       = record Close { issueId = def }
+close       = record Close { issueId = def, comment = def }
             [ issueId       := def
                             += argPos 0 += typ "ISSUEID"
+            , comment       := def
+                            += typ "STRING"
+                            += name "comment"
+                            += name "c"
+                            += explicit
+                            += help "A Comment to Include"
             ] += help "Close an Issue."
               += groupname "Issues"
               += details
@@ -413,6 +420,10 @@ close       = record Close { issueId = def }
     , "and the Due Date to today, if previously unset:"
     , ""
     , "hkredmine close 154"
+    , ""
+    , "You can modify the comment that is added:"
+    , ""
+    , "hkredmine close 154 -c \"Merged into master\""
     ]
 
 startwork   = record StartWork { issueId = def }
