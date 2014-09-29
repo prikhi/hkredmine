@@ -3,7 +3,10 @@ HKRedmine
 
 A Redmine CLI client written in Haskell.
 
-This is not a fully featured API client, but one built for a specific workflow.
+You can do things like track time towards an Issue, create new Issues, view
+Versions & Projects, filter & sort Issues, etc.
+
+You can also reuse the API library for your own projects.
 
 
 Quickstart
