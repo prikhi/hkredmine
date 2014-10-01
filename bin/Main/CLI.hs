@@ -28,7 +28,8 @@ import System.IO                (hClose)
 import System.IO.Temp           (withSystemTempDirectory, withTempFile)
 import System.Process           (callProcess)
 
-import Web.HTTP.Redmine         (Redmine, IssueFilter, redmineLeft)
+import Web.HTTP.Redmine         (Redmine, IssueFilter, redmineLeft,
+                                 redmineMVar, redmineTakeMVar)
 
 import Main.Actions
 
@@ -503,8 +504,14 @@ nextversion = record NextVersion { projectIdent = def } [ projectArg ]
 -- | Transform the arguements of the Issues mode into an IssueFilter.
 argsToIssueFilter :: HKRedmine -> Redmine IssueFilter
 argsToIssueFilter i@(Issues {}) = do
-        filterTracker   <- grabFromName R.getTrackerFromName "Tracker" $ trackerIdent i
-        filterPriority  <- grabFromName R.getPriorityFromName "Priority" $ priorityIdent i
+        trackerFork     <- redmineMVar . grabFromName R.getTrackerFromName "Tracker"
+                         $ trackerIdent i
+        priorityFork    <- redmineMVar . grabFromName R.getPriorityFromName "Priority"
+                         $ priorityIdent i
+        statusFork      <- redmineMVar . R.getStatusFromName $ statusIdent i
+        filterTracker   <- redmineTakeMVar trackerFork
+        filterPriority  <- redmineTakeMVar priorityFork
+        filterStatus    <- redmineTakeMVar statusFork
         filterCategory  <- case (categoryIdent i, projectIdent i) of
                 ("", "")    -> return ""
                 ("", _)     -> return ""
@@ -514,7 +521,6 @@ argsToIssueFilter i@(Issues {}) = do
                                   show . R.categoryId <$>
                                          grabFromName (R.getCategoryFromName $ R.projectId proj)
                                                       "Category" c
-        filterStatus    <- R.getStatusFromName $ statusIdent i
         when (isNothing filterStatus && statusIdent i `notElem` ["", "open", "closed", "*"])
            $ redmineLeft "Not a valid Status name."
         return . map packIt $
@@ -554,12 +560,12 @@ argsToIssueObject :: HKRedmine -> Redmine LB.ByteString
 argsToIssueObject i@(NewIssue {})   = do
         when (projectIdent i == "" || subject i == "")
            $ redmineLeft "Both a Project Identifier and a Subject are required."
-        validProject    <- R.getProjectFromIdent $ projectIdent i
-        validTracker    <- grabFromName R.getTrackerFromName "Tracker" $ trackerIdent i
-        validPriority   <- grabFromName R.getPriorityFromName "Priority" $ priorityIdent i
-        validStatus     <- grabFromName R.getStatusFromName "Status" $ statusIdent i
-        validCategory   <- grabFromName (R.getCategoryFromName $ R.projectId validProject)
-                                         "Category" $ categoryIdent i
+        (validProject,
+         validTracker,
+         validPriority,
+         validStatus,
+         validCategory) <- validateIssueOptions (projectIdent i) (trackerIdent i)
+                           (priorityIdent i) (statusIdent i) (categoryIdent i)
         currentUser     <- R.getCurrentUser
         actualDescript  <- if editDescript i then liftIO getTextFromEditor
                            else return $ description i
@@ -586,14 +592,15 @@ argsToIssueObject i@(NewIssue {})   = do
             ]
 argsToIssueObject u@(Update {})     = do
         i               <- R.getIssue $ issueId u
-        validProject    <- if projectIdent u /= ""
-                           then R.getProjectFromIdent $ projectIdent u
-                           else R.getProjectFromIdent . show $ R.issueProjectId i
-        validTracker    <- grabFromName R.getTrackerFromName "Tracker" $ trackerIdent u
-        validPriority   <- grabFromName R.getPriorityFromName "Priority" $ priorityIdent u
-        validStatus     <- grabFromName R.getStatusFromName "Status" $ statusIdent u
-        validCategory   <- grabFromName (R.getCategoryFromName $ R.projectId validProject)
-                                         "Category" $ categoryIdent u
+        (validProject,
+         validTracker,
+         validPriority,
+         validStatus,
+         validCategory) <- validateIssueOptions
+                           (if projectIdent u /= "" then projectIdent u
+                            else show $ R.issueProjectId i)
+                           (trackerIdent u) (priorityIdent u) (statusIdent u)
+                           (categoryIdent u)
         actualDescript  <- if editDescript u
                            then liftIO $ editTextInEditor $ R.issueDescription i
                            else return $ description u
@@ -621,6 +628,28 @@ argsToIssueObject u@(Update {})     = do
             ]
 argsToIssueObject _ = redmineLeft "The wrong command tried parsing newissues arguments."
 
+-- | Concurrently validate a Project, Tracker, Priority, Status and Category.
+validateIssueOptions :: R.ProjectIdent          -- ^ The Project Identifier
+                     -> String                  -- ^ The Tracker Name
+                     -> String                  -- ^ The Priority Name
+                     -> String                  -- ^ The Status Name
+                     -> String                  -- ^ The Category Name
+                     -> Redmine (R.Project, R.Tracker, R.Priority, R.Status, R.Category)
+validateIssueOptions p t i s c      = do
+        projectFork     <- redmineMVar . R.getProjectFromIdent $ p
+        trackerFork     <- redmineMVar . grabFromName R.getTrackerFromName "Tracker" $ t
+        priorityFork    <- redmineMVar . grabFromName R.getPriorityFromName "Priority" $ i
+        statusFork      <- redmineMVar . grabFromName R.getStatusFromName "Status" $ s
+        validProject    <- redmineTakeMVar projectFork
+        categoryFork    <- redmineMVar . grabFromName (R.getCategoryFromName $
+                           R.projectId validProject) "Category" $ c
+        validTracker    <- redmineTakeMVar trackerFork
+        validPriority   <- redmineTakeMVar priorityFork
+        validStatus     <- redmineTakeMVar statusFork
+        validCategory   <- redmineTakeMVar categoryFork
+        return (validProject, validTracker, validPriority, validStatus, validCategory)
+
+
 -- | Get an item from it's name or return an error.
 grabFromName :: FromJSON a => (String -> Redmine (Maybe a)) -> String -> String -> Redmine a
 grabFromName grab item itemName     = do
@@ -638,7 +667,7 @@ getTextFromEditor                   = editTextInEditor "\n"
 -- | Write a string to a Temporary File, open the file in the $EDITOR and
 -- return the final contents.
 editTextInEditor :: String -> IO String
-editTextInEditor s              =
+editTextInEditor s                  =
         withSystemTempDirectory "hkredmine" $ \dir -> do
             fn  <- withTempFile dir "hkr.redmine" (\fn' fh -> hClose fh >> return fn')
             writeFile fn s

@@ -79,11 +79,19 @@ printStatus             = do
 -- | Print the available Statuses, Trackers, Priorities and Time Entry
 -- Activities.
 printFields :: Redmine ()
-printFields             =
-        getStatuses >>= printWithHeader "Issue Statuses" . map statusName >> nl >>
-        getTrackers >>= printWithHeader "Issue Trackers" . map trackerName >> nl >>
-        getPriorities >>= printWithHeader "Issue Priorities" . map priorityName >> nl >>
-        getActivities >>= printWithHeader "Time Entry Activities" . map activityName
+printFields             = do
+        statusFork    <- redmineMVar getStatuses
+        trackersFork  <- redmineMVar getTrackers
+        priorityFork  <- redmineMVar getPriorities
+        activityFork  <- redmineMVar getActivities
+        redmineTakeMVar statusFork >>=
+                printWithHeader "Issue Statuses" . map statusName >> nl >>
+            redmineTakeMVar trackersFork >>=
+                printWithHeader "Issue Trackers" . map trackerName >> nl >>
+            redmineTakeMVar priorityFork >>=
+                printWithHeader "Issue Priorities" . map priorityName >> nl >>
+            redmineTakeMVar activityFork >>=
+                printWithHeader "Time Entry Activities" . map activityName
         where nl        = liftIO $ putStrLn ""
 
 printCategories :: ProjectIdent -> Redmine ()
@@ -147,8 +155,10 @@ createNewIssue postData = do
 closeIssue :: IssueId -> Maybe String -> Redmine ()
 closeIssue i ms         = do
         liftIO . putStrLn $ "Closing Issue #" ++ show i ++ "..."
-        issue           <- getIssue i
-        closedStatus    <- getStatusFromName "Closed"
+        issueFork       <- redmineMVar $ getIssue i
+        closedFork      <- redmineMVar $ getStatusFromName "Closed"
+        issue           <- redmineTakeMVar issueFork
+        closedStatus    <- redmineTakeMVar closedFork
         today           <- liftIO $ fmap utctDay getCurrentTime
         let updateDue   = isNothing (issueDueDate issue) ||
                           fromJust (issueDueDate issue) `notElem` [ "", show today ]
@@ -226,8 +236,10 @@ stopTimeTracking :: Maybe String -> Maybe String -> Redmine ()
 stopTimeTracking mayActivity mayComment = do
         timeSpent   <- liftIO getTrackedTime
         issueID     <- liftIO getTrackedIssue
-        issue       <- getIssue issueID
-        activities  <- getActivities
+        issueFork   <- redmineMVar $ getIssue issueID
+        activFork   <- redmineMVar getActivities
+        issue       <- redmineTakeMVar issueFork
+        activities  <- redmineTakeMVar activFork
         let activityNames = map activityName activities
             activityIds   = map (show . activityId) activities
             validActivity = (`elem` activityNames ++ activityIds)
@@ -341,8 +353,11 @@ untilValid p action     = do result <- action
 markAsInProgressAndSetStartDate :: IssueId -> Redmine ()
 markAsInProgressAndSetStartDate i   = do
         issue           <- getIssue i
-        status          <- fmap fromJust . getStatusFromName . issueStatus $ issue
-        maybeInProgress <- getStatusFromName "In Progress"
+        statusFork      <- redmineMVar . fmap fromJust . getStatusFromName .
+                           issueStatus $ issue
+        inProgressFork  <- redmineMVar $ getStatusFromName "In Progress"
+        status          <- redmineTakeMVar statusFork
+        maybeInProgress <- redmineTakeMVar inProgressFork
         let changeStatus = statusIsDefault status && isJust maybeInProgress
             setStartDate = isNothing . issueStartDate $ issue
             notes        = if changeStatus || setStartDate

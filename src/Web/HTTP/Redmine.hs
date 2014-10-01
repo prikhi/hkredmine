@@ -34,8 +34,11 @@ module Web.HTTP.Redmine
         -- * Redmine Monad
           Redmine
         , runRedmine
+        , RedmineConfig(..)
         , defaultRedmineConfig
         , redmineLeft
+        , redmineMVar
+        , redmineTakeMVar
         -- * Redmine Types
         , IssueFilter
         -- ** ID Types
@@ -55,8 +58,6 @@ module Web.HTTP.Redmine
         , Category(..)
         , User(..)
         , Version(..)
-        -- ** API-related Types
-        , RedmineConfig(..)
         -- * Redmine API Functions
         -- ** Projects
         , getProjects
@@ -118,6 +119,7 @@ import Safe                         (headMay)
 
 import Web.HTTP.Redmine.Client
 import Web.HTTP.Redmine.Format
+import Web.HTTP.Redmine.Monad
 import Web.HTTP.Redmine.Types
 
 

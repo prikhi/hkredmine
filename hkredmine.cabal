@@ -1,7 +1,7 @@
 name:                hkredmine
 version:             0.1.0.0
 synopsis:            A Redmine CLI Client
--- description:
+description:         A Redmine CLI Client
 homepage:            http://bugs.sleepanarchy.com
 license:             GPL-3
 license-file:        LICENSE
@@ -12,6 +12,10 @@ category:            Web
 build-type:          Simple
 extra-source-files:  README.md
 cabal-version:       >=1.10
+
+source-repository head
+    type:              git
+    location:          git@bugs.sleepanarchy.com/hkredmine.git
 
 executable hkredmine
   main-is:             Main.hs
@@ -33,9 +37,10 @@ executable hkredmine
                        http-client,
                        process,
                        temporary,
+                       parallel,
                        MissingH
 
-  ghc-options:         -Wall
+  ghc-options:         -Wall -threaded
   hs-source-dirs:      bin
   default-language:    Haskell2010
 
@@ -44,6 +49,7 @@ library
   other-modules:       Web.HTTP.Redmine.Client,
                        Web.HTTP.Redmine.Format,
                        Web.HTTP.Redmine.FormatTable,
+                       Web.HTTP.Redmine.Monad,
                        Web.HTTP.Redmine.Types
   build-depends:       base >=4.7 && <4.8,
                        http-conduit,
