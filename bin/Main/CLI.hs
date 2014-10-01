@@ -67,6 +67,7 @@ data HKRedmine
                         , subject           :: String
                         , description       :: String
                         , versionId         :: Integer
+                        , doneRatio         :: Integer
                         , editDescript      :: Bool
                         , isNotMine         :: Bool }
         | Update        { issueId           :: Integer
@@ -78,6 +79,7 @@ data HKRedmine
                         , subject           :: String
                         , description       :: String
                         , versionId         :: Integer
+                        , doneRatio         :: Integer
                         , editDescript      :: Bool
                         , notes             :: String }
         | Close         { issueId           :: Integer
@@ -289,7 +291,8 @@ newissue    = record NewIssue { projectIdent = def, trackerIdent = def
                               , statusIdent = def, priorityIdent = def
                               , categoryIdent = def, isNotMine = def
                               , subject = def, description = def
-                              , versionId = def, editDescript = False }
+                              , doneRatio = def, versionId = def
+                              , editDescript = False }
             [ projectIdent  := def
                             += typ "PROJECTIDENT"
                             += name "project"
@@ -352,6 +355,12 @@ newissue    = record NewIssue { projectIdent = def, trackerIdent = def
                             += explicit
                             += groupname "Optional"
                             += help "A Version's ID"
+            , doneRatio     := def
+                            += name "done-ratio"
+                            += name "r"
+                            += explicit
+                            += groupname "Optional"
+                            += help "The Percentage Completed"
             , editDescript  := def
                             += name "e"
                             += name "edit-description"
@@ -375,8 +384,8 @@ update      = record Update { issueId = def, projectIdent = def
                             , trackerIdent = def, statusIdent = def
                             , priorityIdent = def, categoryIdent = def
                             , subject = def, description = def
-                            , versionId = def, editDescript = False
-                            , notes = def}
+                            , versionId = def, doneRatio = def
+                            , editDescript = False , notes = def }
             [ issueId       := def
                             += argPos 0 += typ "ISSUEID"
             , projectIdent  := def
@@ -583,6 +592,8 @@ argsToIssueObject i@(NewIssue {})   = do
                         | versionId i /= 0 ] ++
                 [ "category_id" .= show (R.categoryId validCategory)
                         | categoryIdent i  /= "" ] ++
+                [ "done_ratio" .= show (doneRatio i)
+                        | doneRatio i /= 0 ]  ++
                 [ "description" .= actualDescript
                         | actualDescript /= "" ]
                 )
@@ -614,6 +625,8 @@ argsToIssueObject u@(Update {})     = do
                         | versionId u /= 0 ] ++
                 [ "category_id" .= show (R.categoryId validCategory)
                         | categoryIdent u  /= "" ] ++
+                [ "done_ratio" .= show (doneRatio u)
+                        | doneRatio u /= 0 ]  ++
                 [ "description" .= actualDescript
                         | actualDescript /= "" ] ++
                 [ "notes" .= notes u
