@@ -172,26 +172,21 @@ status      = record Status {} []
 fields      = record Fields {} []
               += help "Print available field values(Statuses, Priorities, etc.)."
 
-categories  = record Categories { projectIdent = def }
-            [ projectIdent  := def
-                            += argPos 0 += typ "PROJECTIDENT"
-            ] += help "Print a Project's Categories."
+categories  = record Categories { projectIdent = def } [ projectArg ]
+              += help "Print a Project's Categories."
 
 
 projects    = record Projects {} []
               += help "Print all Projects."
               += groupname "Projects"
 
-project     = record Project { projectIdent = def }
-            [ projectIdent  := def
-                            += argPos 0 += typ "PROJECTIDENT"
-            ] += help "Print the details of a Project."
+project     = record Project { projectIdent = def } [ projectArg ]
+              += help "Print the details of a Project."
               += groupname "Projects"
 
-issue       = record Issue { issueId = def }
-            [ issueId       := def
-                            += argPos 0 += typ "ISSUEID"
-            ] += help "Print the details of an Issue."
+
+issue       = record Issue { issueId = def } [ issueArg ]
+              += help "Print the details of an Issue."
               += groupname "Issues"
 
 issues      = record Issues { projectIdent = def, statusIdent = def
@@ -286,6 +281,7 @@ watched     = record Watched { projectIdent = def, statusIdent = def
                              , issueOffset = def } []
               += help "Filter and Print your Watched Issues."
               += groupname "Issues"
+
 
 newissue    = record NewIssue { projectIdent = def, trackerIdent = def
                               , statusIdent = def, priorityIdent = def
@@ -386,8 +382,7 @@ update      = record Update { issueId = def, projectIdent = def
                             , subject = def, description = def
                             , versionId = def, doneRatio = def
                             , editDescript = False , notes = def }
-            [ issueId       := def
-                            += argPos 0 += typ "ISSUEID"
+            [ issueArg
             , projectIdent  := def
                             += typ "PROJECTIDENT"
                             += name "project"
@@ -414,8 +409,7 @@ update      = record Update { issueId = def, projectIdent = def
 
 
 close       = record Close { issueId = def, comment = def }
-            [ issueId       := def
-                            += argPos 0 += typ "ISSUEID"
+            [ issueArg
             , comment       := def
                             += typ "STRING"
                             += name "comment"
@@ -435,10 +429,17 @@ close       = record Close { issueId = def, comment = def }
     , "hkredmine close 154 -c \"Merged into master\""
     ]
 
-startwork   = record StartWork { issueId = def }
-            [ issueId       := def
-                            += argPos 0 += typ "ISSUEID"
-            ] += help "Start tracking time for an Issue."
+watch       = record Watch { issueId = def } [ issueArg ]
+              += help "Watch an Issue."
+              += groupname "Issues"
+
+unwatch     = record Unwatch { issueId = def } [ issueArg ]
+              += help "Unwatch an Issue."
+              += groupname "Issues"
+
+
+startwork   = record StartWork { issueId = def } [ issueArg ]
+              += help "Start tracking time for an Issue."
               += groupname "Time Tracking"
 
 stopwork    = record StopWork { activityType = def, timeComment = def }
@@ -482,22 +483,9 @@ abort       = record Abort {} []
               += help "Abort time tracking."
               += groupname "Time Tracking"
 
-watch       = record Watch { issueId = def }
-            [ issueId := def
-                      += argPos 0 += typ "ISSUEID"
-            ] += help "Watch an Issue."
-              += groupname "Issues"
 
-unwatch     = record Unwatch { issueId = def }
-            [ issueId := def
-                      += argPos 0 += typ "ISSUEID"
-            ] += help "Unwatch an Issue."
-              += groupname "Issues"
-
-versions    = record Versions { projectIdent = def }
-            [ projectIdent := def
-                           += argPos 0 += typ "PROJECTIDENT"
-            ] += help "Print all of a Project's Versions."
+versions    = record Versions { projectIdent = def } [ projectArg ]
+              += help "Print all of a Project's Versions."
               += groupname "Versions"
 
 version     = record Version { versionId = def }
@@ -506,10 +494,8 @@ version     = record Version { versionId = def }
             ] += help "Print the details of a Version."
               += groupname "Versions"
 
-nextversion = record NextVersion { projectIdent = def }
-            [ projectIdent := def
-                           += argPos 0 += typ "PROJECTIDENT"
-            ] += help "Print the next Version due for a Project."
+nextversion = record NextVersion { projectIdent = def } [ projectArg ]
+              += help "Print the next Version due for a Project."
               += groupname "Versions"
 
 
@@ -664,3 +650,10 @@ editTextInEditor s              =
 openInEditorAndRead :: FilePath -> IO String
 openInEditorAndRead fn              = getEnv "EDITOR" >>= flip callProcess [fn]
                                    >> readFile fn
+
+
+projectArg, issueArg :: Annotate Ann
+-- | Make the projectIdent the first required argument
+projectArg  = projectIdent := def += argPos 0 += typ "PROJECTIDENT"
+-- | Make the issueId the first required arugment
+issueArg    = issueId := def += argPos 0 += typ "ISSUEID"
