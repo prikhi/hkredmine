@@ -65,7 +65,7 @@ printStatus             = do
         paused      <- appFileExists "pause_time"
         trackedTime <- if tracking then getTrackedTime else return 0
         mapM_ putStrLn  $
-            [ "Using account \"" ++ fromJust mayAccount ++ "\"."
+            [ "Using account " ++ fromJust mayAccount ++ "."
                     | isJust mayAccount ]
          ++ [ "Currently tracking time for Issue #" ++ show issue ++ "."
                     | tracking && started && not paused ]
