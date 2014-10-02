@@ -22,9 +22,7 @@ import Control.Exception.Lifted         (catch, throwIO)
 import Control.Monad                    (void)
 import Control.Monad.IO.Class           (liftIO)
 import Control.Monad.State              (get)
-import Control.Monad.Trans.Class        (lift)
-import Control.Monad.Trans.Either       (hoistEither)
-import Data.Aeson                       (eitherDecode, FromJSON)
+import Data.Aeson                       (FromJSON)
 import Network.HTTP.Conduit
 import Network.HTTP.Types               (statusCode, statusMessage)
 
@@ -41,7 +39,7 @@ getEndPoint ep getData  = do
         let getReq      = initReq { method = "GET"
                                   , queryString = getParams }
         response        <- makeRequest getReq
-        lift . lift . lift . hoistEither . eitherDecode . responseBody $ response
+        redmineDecode response
         where getParams = BC.concat $ map (\(a, v) -> BC.concat ["&", a, "=", v])
                                           getData
 
@@ -82,6 +80,7 @@ makeRequest request = do
                         "Status Code: " ++ show (statusCode status) ++ "\n" ++
                         "Status Message: " ++ show (statusMessage status)
                 _                              -> throwIO e)
+
 
 
 -- | A basic Redmine API Request. The API key is sent through both HTTP

@@ -85,6 +85,9 @@ data HKRedmine
                         , notes             :: String }
         | Close         { issueId           :: Integer
                         , comment           :: Maybe String }
+        | NewCat        { projectIdent      :: String
+                        , categoryName      :: String
+                        , assignToMe        :: Bool }
         | StartWork     { issueId           :: Integer }
         | StopWork      { activityType      :: Maybe String
                         , timeComment       :: Maybe String }
@@ -116,6 +119,7 @@ dispatch m = case m of
         i@(Update {})   -> argsToIssueObject i >>= R.updateIssue (issueId i) >>
                            liftIO (putStrLn $ "Updated Issue #" ++ show (issueId i) ++ ".")
         Close i s       -> closeIssue i s
+        NewCat p c me   -> newCategory p c me
         StartWork i     -> startTimeTracking i
         StopWork a c    -> stopTimeTracking a c
         Pause           -> liftIO pauseTimeTracking
@@ -131,11 +135,11 @@ dispatch m = case m of
 -- | Available usage modes
 hkredmine :: Annotate Ann
 hkredmine = modes_
-        [ use, status, fields, categories
+        [ use, status
         , project, projects
-        , issue, issues, watched, newissue, update, close
+        , issue, issues, watched, newissue, update, close, watch, unwatch
+        , fields, categories, newcategory
         , startwork, stopwork, pause, resume, abort
-        , watch, unwatch
         , version, versions, nextversion ]
         += help "A Redmine CLI client"
         += program "hkredmine"
@@ -143,9 +147,10 @@ hkredmine = modes_
 
 
 -- | Default options for modes
-use, status, fields, categories, projects, project, issue, issues, watched,
-    newissue, update, close, startwork, stopwork, pause, resume, abort,
-    watch, unwatch, versions, version, nextversion :: Annotate Ann
+use, status, fields, categories, newcategory, projects, project, issue,
+    issues, watched, newissue, update, close, startwork, stopwork, pause,
+    resume, abort, watch, unwatch, versions, version,
+    nextversion :: Annotate Ann
 use         = record Use { accountName = def }
             [ accountName := def
                           += argPos 0
@@ -172,9 +177,11 @@ status      = record Status {} []
 
 fields      = record Fields {} []
               += help "Print available field values(Statuses, Priorities, etc.)."
+              += groupname "Options"
 
 categories  = record Categories { projectIdent = def } [ projectArg ]
               += help "Print a Project's Categories."
+              += groupname "Options"
 
 
 projects    = record Projects {} []
@@ -407,6 +414,20 @@ update      = record Update { issueId = def, projectIdent = def
                             += help "A Comment about the Update"
             ] += help "Update an New Issue."
               += groupname "Issues"
+
+newcategory = record NewCat { projectIdent = def, categoryName = def
+                            , assignToMe = def }
+            [ projectArg
+            , categoryName  := def += argPos 1 += typ "NAME"
+            , assignToMe    := def
+                            += name "me"
+                            += name "m"
+                            += explicit
+                            += help "Assign Issue's to You"
+            ] += name "newcategory"
+              += help "Create a Category."
+              += groupname "Options"
+              += details [ "hkredmine newcategory my-proj \"My Category\" -m" ]
 
 
 close       = record Close { issueId = def, comment = def }

@@ -290,13 +290,15 @@ data Category = Category
 newtype Categories = Categories [Category]
 
 instance FromJSON Category where
-        parseJSON (Object v) =
+        parseJSON (Object r) = do
+            (Object v)      <- r .: "issue_category"
             Category <$> v .: "id"
                      <*> v .: "name"
         parseJSON _          = fail "Unable to parse Issue Category JSON Object."
 
 instance FromJSON Categories where
-        parseJSON (Object v) = Categories <$> parseListInObject v "issue_categories"
+        parseJSON (Object v) = Categories <$> wrapObjectParseList v
+                                              "issue_categories" "issue_category"
         parseJSON _          = fail "Unable to parse Issue Categories JSON Object."
 
 -- Utils

@@ -96,8 +96,6 @@ The following commands are currently available:
     Commands:
         use          Switch to a different redmine account.
         [status]     Print the current Account, Issue and Tracked Time.
-        fields       Print available field values(Statuses, Priorities, etc.).
-        categories   Print a Project's Categories.
     Projects:
         project      Print the details of a Project.
         projects     Print all Projects.
@@ -110,6 +108,10 @@ The following commands are currently available:
         close        Close an Issue.
         watch        Watch an Issue.
         unwatch      Unwatch an Issue.
+    Options:
+        fields       Print available field values(Statuses, Priorities, etc.).
+        categories   Print a Project's Categories.
+        newcategory  Create a Category.
     Time Tracking:
         startwork    Start tracking time for an Issue.
         stopwork     Stop time tracking and submit a time entry.
@@ -120,6 +122,7 @@ The following commands are currently available:
         version      Print the details of a Version.
         versions     Print all of a Project's Versions.
         nextversion  Print the next Version due for a Project.
+
 
 
 Creating Issues
@@ -155,6 +158,18 @@ You can modify existing Issues using the `update` command:
 You can pass the `-e` flag to edit the description in your `$EDITOR`:
 
     hkredmine update 31 --priority Immediate -s "A NU Start" -e
+
+Creating Field Options
+-----------------------
+
+Right now, you can only create new Categories for Projects, using the
+`newcateogry` command:
+
+    hkredmine newcategory a-project Models
+
+The `-m` flag will assign any Issues in the Category to you:
+
+    hkredmine newcategory my-dotfiles "Vim Plugins" -m
 
 
 Viewing Things

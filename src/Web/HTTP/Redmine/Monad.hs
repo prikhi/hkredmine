@@ -10,11 +10,13 @@ module Web.HTTP.Redmine.Monad
         , RedmineConfig(..)
         , defaultRedmineConfig
         , redmineLeft
+        , redmineDecode
         , redmineMVar
         , redmineTakeMVar
         ) where
 
 import qualified Data.ByteString as B
+import qualified Data.ByteString.Lazy as LB     (ByteString)
 
 import Control.Concurrent               (forkIO, putMVar, takeMVar, MVar,
                                          newEmptyMVar)
@@ -22,10 +24,12 @@ import Control.Monad.IO.Class           (MonadIO, liftIO)
 import Control.Monad.Logger             (runStderrLoggingT, LoggingT)
 import Control.Monad.State              (evalStateT, StateT, get)
 import Control.Monad.Trans.Class        (lift)
-import Control.Monad.Trans.Either       (runEitherT, EitherT, left)
+import Control.Monad.Trans.Either       (runEitherT, EitherT, left,
+                                         hoistEither)
 import Control.Monad.Trans.Resource     (runResourceT, ResourceT)
-import Network.HTTP.Conduit             (Manager, newManager,
-                                         conduitManagerSettings)
+import Data.Aeson                       (FromJSON, eitherDecode)
+import Network.HTTP.Conduit             (Manager, newManager, Response,
+                                         conduitManagerSettings, responseBody)
 
 
 -- | The Redmine Monad Holds the Configuration State and Allows Network and
@@ -58,6 +62,10 @@ defaultRedmineConfig     = do
 -- | Return an irrecoverable error in the 'Redmine' Monad.
 redmineLeft :: String -> Redmine a
 redmineLeft             = lift . lift . lift . left
+
+-- | Decode a JSON response in the Redmine Monad.
+redmineDecode :: FromJSON a => Response LB.ByteString -> Redmine a
+redmineDecode = lift . lift . lift . hoistEither . eitherDecode . responseBody
 
 -- | Execute a 'Redmine' action in a fork, putting the action's result in
 -- an 'MVar'.

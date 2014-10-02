@@ -18,6 +18,7 @@ module Main.Actions
         , printNextVersion
         , createNewIssue
         , closeIssue
+        , newCategory
         , switchAccount
         , startTimeTracking
         , stopTimeTracking
@@ -185,21 +186,38 @@ closeIssue i ms         = do
         where whenPrint b s     = when b (liftIO $ putStrLn s)
 
 
+-- Field Creation
+-- | Create new Category.
+newCategory :: ProjectIdent -> String  -> Bool -> Redmine ()
+newCategory p n mine    = do
+    projectFork         <- redmineMVar $ getProjectFromIdent p
+    userFork            <- redmineMVar getCurrentUser
+    pID                 <- projectId <$> redmineTakeMVar projectFork
+    currentUser         <- redmineTakeMVar userFork
+    let postData        = encode $ object [ "issue_category" .= object
+                        ( "name" .= n :
+                          [ "assigned_to_id" .= show (userId currentUser)
+                                | mine ]
+                        ) ]
+    _                   <- createCategory pID postData
+    liftIO . putStrLn $ "Successfully created category " ++ n ++ "."
+
+
 -- Account Tracking
 -- | Switch the current account used.
 switchAccount :: String -> IO ()
 switchAccount account   = do
-        homeDir <- getHomeDirectory
-        let configPath = homeDir ++ "/.hkredminerc"
-        eithAcc <- runExceptT $ do
-            cp  <- join $ liftIO $ readfile emptyCP configPath
+        homeDir         <- getHomeDirectory
+        let configPath  = homeDir ++ "/.hkredminerc"
+        eithAcc         <- runExceptT $ do
+            cp          <- join $ liftIO $ readfile emptyCP configPath
             return $ has_section cp account
         case eithAcc of
-            Right b   -> if b then writeAppFile "account" account
-                                >> putStrLn ("Successfully switched to " ++
-                                             account ++ ".")
-                              else exitError "Account not found in config file."
-            Left _    -> exitError "Could not parse config file."
+            Right b     -> if b then writeAppFile "account" account
+                                  >> putStrLn ("Successfully switched to " ++
+                                               account ++ ".")
+                                else exitError "Account not found in config file."
+            Left _      -> exitError "Could not parse config file."
         where exitError msg = putStrLn msg >> exitFailure
 
 -- Issue Tracking

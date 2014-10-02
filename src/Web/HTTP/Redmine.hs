@@ -37,6 +37,7 @@ module Web.HTTP.Redmine
         , RedmineConfig(..)
         , defaultRedmineConfig
         , redmineLeft
+        , redmineDecode
         , redmineMVar
         , redmineTakeMVar
         -- * Redmine Types
@@ -75,6 +76,7 @@ module Web.HTTP.Redmine
         -- ** Issue Categories
         , getCategories
         , getCategoryFromName
+        , createCategory
         -- ** Trackers
         , getTrackers
         , getTrackerFromName
@@ -106,15 +108,11 @@ import qualified Data.ByteString.Char8 as BC    (pack)
 import qualified Data.ByteString.Lazy as LB     (ByteString)
 import qualified Data.List as L                 (find, sortBy)
 
-import Control.Monad                (when, void)
-import Control.Monad.Trans.Class    (lift)
-import Control.Monad.Trans.Either   (hoistEither)
-import Data.Aeson                   (FromJSON, object, (.=), encode,
-                                     eitherDecode)
+import Control.Monad                ((>=>), when, void)
+import Data.Aeson                   (FromJSON, object, (.=), encode)
 import Data.Function                (on)
 import Data.Maybe                   (isJust, isNothing, fromJust)
 import Data.Time.Clock              (DiffTime)
-import Network.HTTP.Conduit         (responseBody)
 import Safe                         (headMay)
 
 import Web.HTTP.Redmine.Client
@@ -164,9 +162,8 @@ updateIssue issueID         = putEndPoint $ UpdateIssue issueID
 
 -- | Create an 'Issue'. Make and encode the JSON object yourself.
 createIssue :: LB.ByteString -> Redmine Issue
-createIssue postData        =  do
-        response            <- postEndPoint GetIssues postData
-        lift . lift . lift . hoistEither . eitherDecode . responseBody $ response
+createIssue                 = postEndPoint GetIssues >=> redmineDecode
+
 
 
 -- Statuses
@@ -244,6 +241,10 @@ getCategories p             = do Categories cs  <- getEndPoint (GetCategories  p
 -- | Retrieve a 'Category' from a 'ProjectId' and a 'categoryName'.
 getCategoryFromName :: ProjectId -> String -> Redmine (Maybe Category)
 getCategoryFromName p name  = getItemFromField (getCategories p) ((== name) . categoryName)
+
+-- | Create a category from a JSON object.
+createCategory :: ProjectId -> LB.ByteString -> Redmine Category
+createCategory pId = postEndPoint (GetCategories pId) >=> redmineDecode
 
 
 -- Users
