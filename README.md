@@ -144,7 +144,7 @@ with asynchronous editors like `gvim`. You could make an alias:
 
     alias hkredmine="EDITOR=vim hkredmine"
 
-Vim user's may be interested in [this syntax plugin](vim-redminewiki). We
+Vim user's may be interested in [this syntax plugin][vim-redminewiki]. We
 follow the `*.redmine` extension convention.
 
 
