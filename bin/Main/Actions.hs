@@ -101,7 +101,9 @@ printCategories         = getProjectFromIdent >=> getCategories . projectId >=>
 
 -- | Print All Projects
 printProjects :: Redmine ()
-printProjects           = getProjects >>= liftIO . putStrLn . projectsTable
+printProjects           = do
+        width           <- liftIO getWidth
+        getProjects >>= liftIO . putStrLn . projectsTable width
 
 -- | Print A single 'Project'.
 printProject :: ProjectIdent -> Redmine ()
@@ -110,7 +112,9 @@ printProject pIdent     = getProjectFromIdent pIdent >>=
 
 -- | Print Issues filtered by a command line arguments
 printIssues :: IssueFilter -> Redmine ()
-printIssues f           = getIssues f >>= liftIO . putStrLn . issuesTable
+printIssues f           = do
+        width           <- liftIO getWidth
+        getIssues f >>= liftIO . putStrLn . issuesTable width
 
 -- | Print a single 'Issue'.
 printIssue :: IssueId -> Redmine ()
@@ -120,18 +124,20 @@ printIssue i            = getIssue i >>= liftIO . putStrLn . issueDetail
 -- | Print A 'Version' and it's Issues.
 printVersion :: VersionId -> Redmine ()
 printVersion v          = do
-        version <- getVersion v
-        let pID = versionProjectId version
-        issues  <- getVersionsIssues pID version
+        version         <- getVersion v
+        let pID         = versionProjectId version
+        issues          <- getVersionsIssues pID version
+        width           <- liftIO getWidth
         liftIO $ putStrLn (versionDetail version) >> putStrLn "" >>
-                 putStrLn "Issues:" >> putStrLn (issuesTable issues)
+                 putStrLn "Issues:" >> putStrLn (issuesTable width issues)
 
 -- | Print a table showing all 'Versions' of a 'Project'.
 printVersions :: ProjectIdent -> Redmine ()
 printVersions pIdent    = do
-        versions <- getProjectFromIdent pIdent >>= getVersions . projectId
-        let sortedVs = L.sortBy (flip compare `on` versionDueDate) versions
-        liftIO . putStrLn . versionTable $ sortedVs
+        versions        <- getProjectFromIdent pIdent >>= getVersions . projectId
+        let sortedVs    = L.sortBy (flip compare `on` versionDueDate) versions
+        width           <- liftIO getWidth
+        liftIO . putStrLn . versionTable width $ sortedVs
 
 -- | Print the 'Version' that is next due for a 'Project'.
 printNextVersion :: ProjectIdent -> Redmine ()

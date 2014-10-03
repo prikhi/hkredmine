@@ -4,7 +4,8 @@
 -
 -}
 module Main.Utils
-        ( getAppDir
+        ( getWidth
+        , getAppDir
         , appFileExists
         , writeAppFile
         , readAppFile
@@ -17,22 +18,29 @@ module Main.Utils
 
 import Prelude hiding (readFile)
 
-import Control.Applicative      ((<$>))
-import Control.Exception        (catch, throwIO)
-import Data.Time.Clock          (DiffTime)
-import Data.Time.Clock.POSIX    (getPOSIXTime)
-import System.Directory         (getAppUserDataDirectory, removeFile,
-                                 doesFileExist)
-import System.Exit              (exitFailure)
-import System.IO                (openFile, IOMode(..), hClose, hPutStr,
-                                 hFlush)
-import System.IO.Strict         (readFile)
-import System.IO.Error          (isDoesNotExistError)
+import Control.Applicative          ((<$>))
+import Control.Exception            (catch, throwIO)
+import Control.Monad                (liftM)
+import Data.Time.Clock              (DiffTime)
+import Data.Time.Clock.POSIX        (getPOSIXTime)
+import System.Console.Terminal.Size (size, width)
+import System.Directory             (getAppUserDataDirectory, removeFile,
+                                     doesFileExist)
+import System.Exit                  (exitFailure)
+import System.IO                    (openFile, IOMode(..), hClose, hPutStr,
+                                     hFlush)
+import System.IO.Strict             (readFile)
+import System.IO.Error              (isDoesNotExistError)
 
+
+-- | Retrieve the drawing width. Defaults to the terminal width, falling
+-- back to 80 characters if the width is unavailable.
+getWidth :: IO Integer
+getWidth    = liftM (maximum . (:[80]) . maybe 80 width) size
 
 -- | Retrieve the App's UserData directory
 getAppDir :: IO FilePath
-getAppDir = (++ "/") <$> getAppUserDataDirectory "hkredmine"
+getAppDir   = (++ "/") <$> getAppUserDataDirectory "hkredmine"
 
 -- | Check whether a File in the App's UserData directory exists.
 appFileExists :: String -> IO Bool

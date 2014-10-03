@@ -38,6 +38,7 @@ executable hkredmine
                        process,
                        temporary,
                        parallel,
+                       terminal-size,
                        MissingH
 
   ghc-options:         -Wall -threaded

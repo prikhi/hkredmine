@@ -13,6 +13,8 @@ module Web.HTTP.Redmine.Format
         , versionDetail
         ) where
 
+import Prelude hiding (Either(..))
+
 import Data.List    (intercalate)
 import Data.Maybe   (fromMaybe, fromJust, isJust)
 
@@ -21,33 +23,46 @@ import Web.HTTP.Redmine.Types
 
 -- | Create a Table of Projects with ID, Name, Identifier, Description
 -- & Updated Columns
-projectsTable :: [Project] -> String
-projectsTable = showTable [ ColDesc center "ID" left (show . projectId)
-                          , ColDesc center "Identifier" left projectIdentifier
-                          , ColDesc center "Name" left projectName
-                          , ColDesc center "Description" left (takeWhile (/= '\r') . projectDescription)
-                          , ColDesc center "Updated" left (takeWhile (/= 'T') . projectUpdated)
-                          ]
+projectsTable :: Integer -> [Project] -> String
+projectsTable = formatTable
+        [ Column "ID" middleCenter middleLeft 5 $ show . projectId
+        , Column "Identifier" middleCenter middleCenter 22 projectIdentifier
+        , Column "Name" middleCenter middleLeft 17 projectName
+        , Column "Description" middleCenter middleLeft 35 $
+                takeWhile (/= '\r') . projectDescription
+        , Column "Updated" middleCenter middleCenter 12 $
+                takeWhile (/= 'T') . projectUpdated
+        ]
+
+middleCenter, middleLeft :: Alignment
+middleCenter    = Alignment Middle Center
+middleLeft      = Alignment Middle Left
 
 -- | Create a Table of Issues with an ID#, Tracker, Status, Priority,
 -- Category & Subject.
-issuesTable :: [Issue] -> String
-issuesTable = showTable [ ColDesc center "ID" left $ show . issueId
-                        , ColDesc center "Tracker" left issueTracker
-                        , ColDesc center "Priority" left issuePriority
-                        , ColDesc center "Subject" left issueSubject
-                        , ColDesc center "Status" left issueStatus
-                        , ColDesc center "Category" left $ fromMaybe "" . issueCategory
-                        ]
+issuesTable :: Integer -> [Issue] -> String
+issuesTable = formatTable
+        [ Column "ID" middleCenter middleLeft 7 $ show . issueId
+        , Column "Tracker" middleCenter middleCenter 15 issueTracker
+        , Column "Priority" middleCenter middleCenter 13 issuePriority
+        , Column "Subject" middleCenter middleLeft 50 issueSubject
+        , Column "Status" middleCenter middleCenter 15 issueStatus
+        , Column "Category" middleCenter middleCenter 17 $
+                fromMaybe "" . issueCategory
+        ]
 
 -- | Create a Table of Versions.
-versionTable :: [Version] -> String
-versionTable = showTable [ ColDesc center "ID" left $ show . versionId
-                         , ColDesc center "Name" left versionName
-                         , ColDesc center "Status" left versionStatus
-                         , ColDesc center "Description" left (takeWhile (/= '\r') . versionDescription)
-                         , ColDesc center "Due Date" left $ fromMaybe "" . versionDueDate
-                         ]
+versionTable :: Integer -> [Version] -> String
+versionTable = formatTable
+        [ Column "ID" middleCenter middleLeft 5 $ show . versionId
+        , Column "Name" middleCenter middleCenter 20 versionName
+        , Column "Status" middleCenter middleCenter 12 versionStatus
+        , Column "Description" middleCenter middleLeft 25 $
+                takeWhile (/= '\r') . versionDescription
+        , Column "Due Date" middleCenter middleCenter 15 $
+                fromMaybe "" . versionDueDate
+        ]
+
 
 -- | Create a String Displaying a Project's Name, ID, Identifier,
 -- Created/Updated Dates & Description
