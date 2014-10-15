@@ -46,11 +46,11 @@ getEndPoint ep getData  = do
 -- | Send a POST request to the given 'EndPoint' along with any passed
 -- parameters
 postEndPoint :: EndPoint -> LB.ByteString -> Redmine (Response LBC.ByteString)
-postEndPoint ep postData = do
-        initReq         <- redmineRequest ep
+postEndPoint ep postData        = do
+        initReq                 <- redmineRequest ep
         makeRequest initReq
-                { method      = "POST"
-                , requestBody = RequestBodyLBS postData
+                { method        = "POST"
+                , requestBody   = RequestBodyLBS postData
                 }
 
 -- | Send a PUT request to the given 'EndPoint' along with any passed
@@ -88,8 +88,8 @@ makeRequest request = do
 -- servers as possible.
 redmineRequest :: EndPoint -> Redmine Request
 redmineRequest ep       = do
-        config      <- get
-        initReq     <- liftIO . parseUrl $ makeURL (redURL config) ep
+        config          <- get
+        initReq         <- liftIO . parseUrl $ makeURL (redURL config) ep
         return . applyBasicAuth (redAPI config) "" $
                initReq { requestHeaders = [ ("Content-Type", "application/json")
                                           , ("X-Redmine-API-Key", redAPI config)
@@ -100,18 +100,22 @@ makeURL :: String -> EndPoint -> String
 makeURL url e       = url ++ endpoint e ++ ".json"
         where endpoint GetProjects              = "projects"
               endpoint GetIssues                = "issues"
-              endpoint (GetProjectsIssues n)    = "projects/" ++ show n ++ "/issues"
+              endpoint (GetProjectsIssues n)    = "projects/" ++ show n
+                                                ++ "/issues"
               endpoint GetStatuses              = "issue_statuses"
               endpoint (GetIssue i)             = "issues/" ++ show i
               endpoint (UpdateIssue i)          = "issues/" ++ show i
               endpoint GetCurrentUser           = "users/current"
-              endpoint (AddWatcher i)           = "issues/" ++ show i ++ "/watchers"
-              endpoint (RemoveWatcher i u)      = "issues/" ++ show i ++ "/watchers/"
-                                                ++ show u
+              endpoint (AddWatcher i)           = "issues/" ++ show i
+                                                ++ "/watchers"
+              endpoint (RemoveWatcher i u)      = "issues/" ++ show i
+                                                ++ "/watchers/" ++ show u
               endpoint (GetVersion v)           = "versions/" ++ show v
-              endpoint (GetVersions n)          = "projects/" ++ show n ++ "/versions"
+              endpoint (GetVersions n)          = "projects/" ++ show n
+                                                ++ "/versions"
               endpoint GetActivites             = "enumerations/time_entry_activities"
               endpoint GetTimeEntries           = "time_entries"
               endpoint GetTrackers              = "trackers"
               endpoint GetPriorities            = "enumerations/issue_priorities"
-              endpoint (GetCategories p)        =  "projects/" ++ show p ++ "/issue_categories"
+              endpoint (GetCategories p)        =  "projects/" ++ show p
+                                                ++ "/issue_categories"

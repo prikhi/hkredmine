@@ -5,15 +5,15 @@
 -}
 module Main.Utils
         ( getWidth
-        , getAppDir
+        , diffTimeToHours
+        , readFileOrExit
+        , writeTimeFile
+        , getAccount
         , appFileExists
         , writeAppFile
         , readAppFile
         , removeAppFile
-        , readFileOrExit
-        , writeTimeFile
-        , getAccount
-        , diffTimeToHours
+        , getAppDir
         ) where
 
 import Prelude hiding (readFile)
@@ -33,14 +33,40 @@ import System.IO.Strict             (readFile)
 import System.IO.Error              (isDoesNotExistError)
 
 
--- | Retrieve the drawing width. Defaults to the terminal width, falling
+-- | Retrieve the output width. Defaults to the terminal width, falling
 -- back to 80 characters if the width is unavailable.
 getWidth :: IO Integer
 getWidth    = liftM (maximum . (:[80]) . maybe 80 width) size
 
--- | Retrieve the App's UserData directory
-getAppDir :: IO FilePath
-getAppDir   = (++ "/") <$> getAppUserDataDirectory "hkredmine"
+-- | Turn a 'DiffTime' into a Double representing the nubmer of hours.
+diffTimeToHours :: DiffTime -> Double
+diffTimeToHours dt      = fromIntegral (round dt :: Integer) / 3600.0
+
+-- | Retrieve the currently used account if one exists.
+getAccount :: IO (Maybe String)
+getAccount              = do
+        tracking        <- appFileExists "account"
+        if tracking
+            then Just <$> readAppFile "account"
+            else return Nothing
+
+
+-- General File/Directory Operations
+-- | Read from the specified file, returning the contents or exiting with
+-- an error.
+readFileOrExit :: String    -- ^ The File Name
+               -> String    -- ^ The Error Message to print before exiting.
+               -> IO String
+readFileOrExit fn err   =
+        catch (readAppFile fn)
+              ((\_  -> putStrLn err >> exitFailure) :: IOError -> IO String)
+
+-- | Write the curent time to a file in the UserData directory.
+writeTimeFile :: String     -- ^ The File Name
+              -> IO ()
+writeTimeFile fn        = do
+        currentTime <- getPOSIXTime
+        writeAppFile fn $ show (round currentTime :: Integer)
 
 -- | Check whether a File in the App's UserData directory exists.
 appFileExists :: String -> IO Bool
@@ -77,31 +103,6 @@ removeAppFile fn        = do
                 | isDoesNotExistError e = return ()
                 | otherwise = throwIO e
 
-
--- | Read from the specified file, returning the contents or exiting with
--- an error.
-readFileOrExit :: String    -- ^ The File Name
-               -> String    -- ^ The Error Message to print before exiting.
-               -> IO String
-readFileOrExit fn err   =
-        catch (readAppFile fn)
-              ((\_  -> putStrLn err >> exitFailure) :: IOError -> IO String)
-
--- | Write the curent time to a file.
-writeTimeFile :: String     -- ^ The File Name
-              -> IO ()
-writeTimeFile fn        = do
-        currentTime <- getPOSIXTime
-        writeAppFile fn $ show (round currentTime :: Integer)
-
--- | Retrieve the currently used account if one exists.
-getAccount :: IO (Maybe String)
-getAccount              = do
-        tracking        <- appFileExists "account"
-        if tracking
-            then Just <$> readAppFile "account"
-            else return Nothing
-
--- | Turn a 'DiffTime' into a Double representing the nubmer of hours.
-diffTimeToHours :: DiffTime -> Double
-diffTimeToHours dt      = fromIntegral (round dt :: Integer) / 3600.0
+-- | Retrieve the App's UserData directory
+getAppDir :: IO FilePath
+getAppDir   = (++ "/") <$> getAppUserDataDirectory "hkredmine"

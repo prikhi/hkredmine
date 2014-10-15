@@ -33,6 +33,7 @@ import Web.HTTP.Redmine         (Redmine, IssueFilter, redmineLeft,
 
 import Main.Actions
 
+
 -- | Usage modes options for the CLI interface.
 data HKRedmine
         = Use           { accountName       :: String }
@@ -521,6 +522,14 @@ nextversion = record NextVersion { projectIdent = def } [ projectArg ]
               += groupname "Versions"
 
 
+-- Standard Arguments
+projectArg, issueArg :: Annotate Ann
+-- | Make the projectIdent the first required argument
+projectArg  = projectIdent := def += argPos 0 += typ "PROJECTIDENT"
+-- | Make the issueId the first required arugment
+issueArg    = issueId := def += argPos 0 += typ "ISSUEID"
+
+
 -- Utils
 -- | Transform the arguements of the Issues mode into an IssueFilter.
 argsToIssueFilter :: HKRedmine -> Redmine IssueFilter
@@ -609,8 +618,7 @@ argsToIssueObject i@(NewIssue {})   = do
                         | doneRatio i /= 0 ]  ++
                 [ "description" .= actualDescript
                         | actualDescript /= "" ]
-                )
-            ]
+                ) ]
 argsToIssueObject u@(Update {})     = do
         i               <- R.getIssue $ issueId u
         (validProject,
@@ -645,8 +653,7 @@ argsToIssueObject u@(Update {})     = do
                         | actualDescript /= "" ] ++
                 [ "notes" .= notes u
                         | notes u /= "" ]
-                )
-            ]
+                ) ]
 argsToIssueObject _ = redmineLeft "The wrong command tried parsing newissues arguments."
 
 -- | Concurrently validate a Project, Tracker, Priority, Status and Category.
@@ -700,10 +707,3 @@ editTextInEditor s                  =
 openInEditorAndRead :: FilePath -> IO String
 openInEditorAndRead fn              = getEnv "EDITOR" >>= flip callProcess [fn]
                                    >> readFile fn
-
-
-projectArg, issueArg :: Annotate Ann
--- | Make the projectIdent the first required argument
-projectArg  = projectIdent := def += argPos 0 += typ "PROJECTIDENT"
--- | Make the issueId the first required arugment
-issueArg    = issueId := def += argPos 0 += typ "ISSUEID"

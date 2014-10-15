@@ -59,12 +59,12 @@ import Main.Utils
 -- | Print the current account, issue and time, if any.
 printStatus :: IO ()
 printStatus             = do
-        mayAccount  <- getAccount
-        tracking    <- appFileExists "issue"
-        issue       <- if tracking then getTrackedIssue else return 0
-        started     <- appFileExists "start_time"
-        paused      <- appFileExists "pause_time"
-        trackedTime <- if tracking then getTrackedTime else return 0
+        mayAccount      <- getAccount
+        tracking        <- appFileExists "issue"
+        issue           <- if tracking then getTrackedIssue else return 0
+        started         <- appFileExists "start_time"
+        paused          <- appFileExists "pause_time"
+        trackedTime     <- if tracking then getTrackedTime else return 0
         mapM_ putStrLn  $
             [ "Using account " ++ fromJust mayAccount ++ "."
                     | isJust mayAccount ]
@@ -72,8 +72,8 @@ printStatus             = do
                     | tracking && started && not paused ]
          ++ [ "Time tracking for Issue #" ++ show issue ++ " is currently paused."
                     | tracking && started && paused ]
-         ++ [ "You have tracked " ++ renderSecs (round trackedTime) ++ " on this Issue so far."
-                    | tracking ]
+         ++ [ "You have tracked " ++ renderSecs (round trackedTime) ++
+                    " on this Issue so far." | tracking ]
          ++ [ "Not currenlty tracking an issue or an account."
                     | not tracking && isNothing mayAccount ]
 
@@ -81,10 +81,10 @@ printStatus             = do
 -- Activities.
 printFields :: Redmine ()
 printFields             = do
-        statusFork    <- redmineMVar getStatuses
-        trackersFork  <- redmineMVar getTrackers
-        priorityFork  <- redmineMVar getPriorities
-        activityFork  <- redmineMVar getActivities
+        statusFork      <- redmineMVar getStatuses
+        trackersFork    <- redmineMVar getTrackers
+        priorityFork    <- redmineMVar getPriorities
+        activityFork    <- redmineMVar getActivities
         redmineTakeMVar statusFork >>=
                 printWithHeader "Issue Statuses" . map statusName >> nl >>
             redmineTakeMVar trackersFork >>=
@@ -258,12 +258,12 @@ startTimeTracking i     = do
 -- prompting for input and submiting the entry.
 stopTimeTracking :: Maybe String -> Maybe String -> Redmine ()
 stopTimeTracking mayActivity mayComment = do
-        timeSpent   <- liftIO getTrackedTime
-        issueID     <- liftIO getTrackedIssue
-        issueFork   <- redmineMVar $ getIssue issueID
-        activFork   <- redmineMVar getActivities
-        issue       <- redmineTakeMVar issueFork
-        activities  <- redmineTakeMVar activFork
+        timeSpent       <- liftIO getTrackedTime
+        issueID         <- liftIO getTrackedIssue
+        issueFork       <- redmineMVar $ getIssue issueID
+        activFork       <- redmineMVar getActivities
+        issue           <- redmineTakeMVar issueFork
+        activities      <- redmineTakeMVar activFork
         let activityNames = map activityName activities
             activityIds   = map (show . activityId) activities
             validActivity = (`elem` activityNames ++ activityIds)
@@ -388,12 +388,12 @@ markAsInProgressAndSetStartDate i   = do
                            then "Starting work on this issue." else "" :: String
         today           <- liftIO $ fmap utctDay getCurrentTime
         let putData      = encode $ object [ "issue" .= object (concat
-                    [ ["status_id" .= (statusId . fromJust $ maybeInProgress)
-                            | changeStatus]
-                    , ["start_date" .= show today
-                            | setStartDate]
-                    , ["notes" .= notes]
-                    ] ) ]
+                [ ["status_id" .= (statusId . fromJust $ maybeInProgress)
+                        | changeStatus]
+                , ["start_date" .= show today
+                        | setStartDate]
+                , ["notes" .= notes]
+                ] ) ]
         unless (isJust maybeInProgress)
                (liftIO . putStrLn $ "Issue status is unchanged because we couldn't "
                                  ++ "find an 'In Progress' status.")
