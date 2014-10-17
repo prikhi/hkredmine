@@ -27,20 +27,42 @@ Quickstart
 Installation
 -------------
 
+No packages currently exist, if you have experience packaging Haskell programs
+for Debian, Arch Linux, etc. please drop us a patch or some hints.
+
+You can still build and install directly from the source. You will need `cabal`:
+
+    # Arch-Linux
+    sudo pacman -S cabal-install zlib
+
+    # Debian/Ubuntu
+    sudo apt-get install cabal-install zlib1g-dev
+
+Then grab the source:
+
+    git clone http://bugs.sleepanarchy.com/hkredmine.git
+
 Build and install:
 
+    cd hkredmine
+    cabal sandbox init
     cabal install -j
 
-Contributers should build the documentation:
+Then copy this somewhere in your path:
 
-    cabal haddock
+    sudo cp dist/build/hkredmine/hkredmine /usr/bin
+    cp dist/build/hkredmine/hkredmine ~/.bin
 
+You may then remove the `hkredmine` directory:
+
+    cd ..
+    rm -rf hkredmine
 
 Configuration
 --------------
 
 `hkredmine` expects a configuration file at `~/.hkredminerc`. It should follow
-the basic INI `key=value` style. Only two values are required, `url` and
+the basic INI `key = value` style. Only two settings are required, `url` and
 `apikey`:
 
     # ~/.hkredminerc
@@ -52,6 +74,7 @@ the URL.
 
 Multiple accounts may be used by putting keys under `[AccountName]` headers:
 
+    # ~/.hkredminerc
     [account1]
     url = ...
     apikey = "..."
@@ -232,7 +255,7 @@ When Issues are considered finished, you can run the `close` command:
     hkredmine close 154
 
 This will change the Issue's status to `Closed`, the done ratio to `100%` and
-the due date to today(but only if it was not set).
+the due date to today(but only if it is not already set).
 
 You can specify a comment to leave when updating the Issue using the `comment`
 flag:
@@ -243,82 +266,109 @@ flag:
 Workflow
 ---------
 
-At v1.0 you should be able to do the following:
+Let's begin our day by picking an account to use. This is only necessary is you
+have accounts on multiple Redmine instances:
 
-    # Wake up, pick a tracker:
     hkredmine use sleepanarchy
 
-    # What am I watching?
+As a quick refresher, we'll see what Issues we are watching:
+
     hkredmine watched
 
-    # Hmm, nothing interesting. What projects could I work on?
+Nothing we feel like tackling at the moment... Let's checkout all available
+projects:
+
     hkredmine projects
 
-    # accounting-app seems cool, lets see the next milestone:
-    hkredmine nextversion accounting-app --sort=priority --status=New
+We find a project we want to work on, let's check out the open issues in the
+project's next version:
 
-    # OK I found an interesting issue, let's see the details
-    hkredmine details 154
+    hkredmine nextversion acorn-accounting
 
-    # Looks good, let's mark as "In Progress" and start tracking our
-    # time.
+We see an Issue that catches our eye, let's see it's details:
+
+    hkredmine issue 154
+
+Looks good, let's mark it as "In Progress", set the start date to today and
+start tracking time towards the Issue:
+
     hkredmine startwork 154
 
-    # Something came up, we need to stop work and add a time entry
-    hkredmine stopwork --type=Development --comment="Tested/Implemented X."
-    # And switch trackers and make a new issue
+An emergency has come up in a project that is on a different Redmine instance.
+First, we'll stop tracking time for the current Issue and create a new time
+entry:
+
+    hkredmine stopwork --type=Development --comment="Started writing tests."
+
+We'll switch to our account on the other Redmine instance, then create a new Issue:
+
     hkredmine use acorn
-    hkredmine newissue --project=it-computers
+    hkredmine newissue --project=it-computers -t Support -i Immediate -e -s "Emergency Request"
 
-    # Our editor should open up to let us edit the subject, description,
-    # priority, etc. The issue should be created and the details displayed.
+Our editor should open up to let us enter a detailed description for the Issue.
+After saving and exiting from our editor, the issue will be created. Let's
+start work on it:
 
-    # We'll start on the issue
     hkredmine startwork 280
 
-    # We notice something out of scope and make a new issue
-    hkredmine newissue --project=it-computers
-    # We'll watch the issue so we remember to come back to it
+While working on the Issue, we notice something out of scope and quickly make a
+new issue:
+
+    hkredmine newissue -p it-computers -t Bug -s "Something is wrong with X!"
+
+Let's watch it so we remember to come back to it:
+
     hkredmine watch 281
 
-    # We've finished, let's log our time and close the issue
-    hkredmine stopwork --activity=Support --comment="Help Y with X."
+Finally, we're done with the emergency Issue.Let's stop work on it:
+
+    hkredmine stopwork --activity=Administration --comment="Help Y with X."
+
+Let's mark the Issue as Closed, set the Due Date to today and the Done Ratio to
+100%:
+
     hkredmine close 280
 
-    # Going back to the old issue
+We can jump back to our first Issue now:
+
     hkredmine use sleepanarchy
     hkredmine startwork 154
 
-    # Let's take a little break
+After working a bit more, we go for a walk:
+
     hkredmine pause
 
-    # We come back
+Once we get back, we start tracking time again:
+
     hkredmine resume
-    # Forgot what we were working on
+
+But... we forgot what we were doing:
+
     hkredmine status
-    # Fix the issue and mark as resolved.
+    hkredmine issue 154
+
+OK, we've done as much as we can, we need some feedback to continue:
+
+    hkredmine update 154 --status="Feedback"
+
+Finally we'll submit a time entry and watch the Issue:
+
     hkredmine stopwork --activity=Development comment="Fixed thing, waiting on confirmation."
     hkredmine watch 154
-
-Still need to implement:
-* delete
-
-Maybe eventually:
-* newproject
-* newcategory, newstatus, etc.
-* newaccount
-* wiki
-* editwiki
-
-Open tickets with any requests.
 
 
 Contribute
 -----------
 
-Submit bugs and patches: http://bugs.sleepanarchy.com/projects/hkredmine
+Request features, report bugs and submit patches:
+http://bugs.sleepanarchy.com/projects/hkredmine
 
-Or on github: https://github.com/prikhi/hkredmine
+A github mirror is available if you prefer pull requests:
+https://github.com/prikhi/hkredmine
+
+Use `cabal` to build the documentation:
+
+    cabal haddock
 
 
 [vim-redminewiki]: https://github.com/s3rvac/vim-syntax-redminewiki/

@@ -23,7 +23,7 @@ executable hkredmine
                        Main.CLI,
                        Main.Utils
 
-  build-depends:       base >=4.7 && <4.8,
+  build-depends:       base >=4.6 && <4.8,
                        aeson,
                        hkredmine,
                        transformers,
@@ -35,7 +35,7 @@ executable hkredmine
                        ConfigFile,
                        mtl>=2.2,
                        http-client,
-                       process,
+                       process>=1.2,
                        temporary,
                        parallel,
                        terminal-size,
@@ -52,7 +52,7 @@ library
                        Web.HTTP.Redmine.FormatTable,
                        Web.HTTP.Redmine.Monad,
                        Web.HTTP.Redmine.Types
-  build-depends:       base >=4.7 && <4.8,
+  build-depends:       base >=4.6 && <4.8,
                        http-conduit,
                        http-client,
                        http-types,
