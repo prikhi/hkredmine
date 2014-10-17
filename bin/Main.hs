@@ -34,8 +34,12 @@ main                    = do
         let action      = dispatch argMode
         result          <- runRedmine cfg action
         case result of
-            Right r     -> putStr "OK: " >> print r >> exitSuccess
-            Left err    -> putStr "ERROR: " >> putStrLn err >> exitFailure
+            Right _     -> exitSuccess
+            Left err    -> mapM_ putStrLn
+                         [ err
+                         , "Please report bugs and ugly error messages to:"
+                         , "http://bugs.sleepanarchy.com/projects/hkredmine/issues/new"
+                         ] >> exitFailure
 
 -- | Create the data directory for the application, read the config file
 -- and return a 'RedmineConfig'.
