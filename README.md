@@ -13,15 +13,16 @@ Quickstart
 -----------
 
 1. Clone this repository: `git clone http://bugs.sleepanarchy.com/hkredmine.git`
-2. Install hkredmine: `cd hkredmine; cabal install -j`
-3. Add your Redmine URL to the config file: `echo 'url=http://redmine.yourdomain.com/' > ~/.hkredminerc`
-4. And your API key: `echo 'apikey="longalphanumericstring"' >> ~/.hkredminerc`
-5. List available projects: `hkredmine projects`
-6. List the issues of a project: `hkredmine issues -p <project_identifier>`
-7. List the next version of a project: `hkredmine nextversion <project_identifier>`
-8. Start tracking time on an issue: `hkredmine startwork <issue_id>`
-9. Stop tracking time and create a new time entry: `hkredmine stopwork`
-10. Learn how to use everything else: `hkredmine --help`
+1. Install hkredmine: `cd hkredmine; cabal install -j`
+1. Add it to your path: `export PATH=$PATH:~/.cabal/bin`
+1. Add your Redmine URL to the config file: `echo 'url=http://redmine.yourdomain.com/' > ~/.hkredminerc`
+1. And your API key: `echo 'apikey="longalphanumericstring"' >> ~/.hkredminerc`
+1. List available projects: `hkredmine projects`
+1. List the issues of a project: `hkredmine issues -p <project_identifier>`
+1. List the next version of a project: `hkredmine nextversion <project_identifier>`
+1. Start tracking time on an issue: `hkredmine startwork <issue_id>`
+1. Stop tracking time and create a new time entry: `hkredmine stopwork`
+1. Learn how to use everything else: `hkredmine --help`
 
 
 Installation
