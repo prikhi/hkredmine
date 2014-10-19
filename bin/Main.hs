@@ -35,11 +35,7 @@ main                    = do
         result          <- runRedmine cfg action
         case result of
             Right _     -> exitSuccess
-            Left err    -> mapM_ putStrLn
-                         [ err
-                         , "Please report bugs and ugly error messages to:"
-                         , "http://bugs.sleepanarchy.com/projects/hkredmine/issues/new"
-                         ] >> exitFailure
+            Left err    -> putStrLn err >> exitFailure
 
 -- | Create the data directory for the application, read the config file
 -- and return a 'RedmineConfig'.
