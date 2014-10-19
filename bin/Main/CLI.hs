@@ -20,7 +20,7 @@ import Control.Applicative      ((<$>))
 import Control.Monad            (when)
 import Control.Monad.IO.Class   (liftIO)
 import Data.Aeson               ((.=), object, encode, FromJSON)
-import Data.Maybe               (isNothing, fromJust)
+import Data.Maybe               (isNothing, isJust, fromJust)
 import System.Console.CmdArgs
 import System.Directory         (removeFile)
 import System.Environment       (getEnv)
@@ -118,7 +118,8 @@ dispatch m = case m of
                            printIssues . (++ [ ("watcher_id", "me" ) ])
         i@(NewIssue {}) -> argsToIssueObject i >>= createNewIssue
         i@(Update {})   -> argsToIssueObject i >>= R.updateIssue (issueId i) >>
-                           liftIO (putStrLn $ "Updated Issue #" ++ show (issueId i) ++ ".")
+                           liftIO (putStrLn $ "Updated Issue #" ++
+                                               show (issueId i) ++ ".")
         Close i s       -> closeIssue i s
         NewCat p c me   -> newCategory p c me
         StartWork i     -> startTimeTracking i
@@ -531,31 +532,35 @@ issueArg    = issueId := def += argPos 0 += typ "ISSUEID"
 
 
 -- Utils
--- | Transform the arguements of the Issues mode into an IssueFilter.
+-- | Transform the arguements of the Issues mode into an IssueFilter. The
+-- special statuses "open", "closed" and "*" are also allowed.
 argsToIssueFilter :: HKRedmine -> Redmine IssueFilter
 argsToIssueFilter i@(Issues {}) = do
+        projectFork     <- redmineMVar . R.getProjectFromIdent $ projectIdent i
         trackerFork     <- redmineMVar . grabFromName R.getTrackerFromName "Tracker"
                          $ trackerIdent i
         priorityFork    <- redmineMVar . grabFromName R.getPriorityFromName "Priority"
                          $ priorityIdent i
         statusFork      <- redmineMVar . R.getStatusFromName $ statusIdent i
+        filterProject   <- if projectIdent i /= "" then Just <$> redmineTakeMVar projectFork
+                           else return Nothing
+        categoryFork    <- redmineMVar $ case (categoryIdent i, projectIdent i) of
+            ("", "")    -> return ""
+            ("", _)     -> return ""
+            (_, "")     -> redmineLeft $ "You must filter by Project if " ++
+                                            "you want to filter by Category."
+            (c, _)      -> show . R.categoryId <$>
+                           grabFromName (R.getCategoryFromName . R.projectId $
+                                         fromJust filterProject) "Category" c
         filterTracker   <- redmineTakeMVar trackerFork
         filterPriority  <- redmineTakeMVar priorityFork
         filterStatus    <- redmineTakeMVar statusFork
-        filterCategory  <- case (categoryIdent i, projectIdent i) of
-                ("", "")    -> return ""
-                ("", _)     -> return ""
-                (_, "")     -> redmineLeft $ "You must filter by Project if " ++
-                                              "you want to filter by Category."
-                (c, p)      -> do proj <- R.getProjectFromIdent p
-                                  show . R.categoryId <$>
-                                         grabFromName (R.getCategoryFromName $ R.projectId proj)
-                                                      "Category" c
+        filterCategory  <- redmineTakeMVar categoryFork
         when (isNothing filterStatus && statusIdent i `notElem` ["", "open", "closed", "*"])
            $ redmineLeft "Not a valid Status name."
         return . map packIt $
-            [ ("project_id", projectIdent i)
-                    | projectIdent i /= "" ] ++
+            [ ("project_id", R.projectIdentifier $ fromJust filterProject)
+                    | isJust filterProject ] ++
             [ ("tracker_id", show . R.trackerId $ filterTracker)
                     | trackerIdent i /= "" ] ++
             [ ("status_id", show . R.statusId $ fromJust filterStatus)
