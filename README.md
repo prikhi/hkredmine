@@ -31,25 +31,30 @@ Installation
 No packages currently exist, if you have experience packaging Haskell programs
 for Debian, Arch Linux, etc. please drop us a patch or some hints.
 
-You can still build and install directly from the source. You will need `cabal`:
+You can still build and install directly from the source. You will need
+`cabal`, `git` and `zlib`:
 
     # Arch-Linux
-    sudo pacman -S cabal-install zlib
+    sudo pacman -S cabal-install git zlib
 
     # Debian/Ubuntu
-    sudo apt-get install cabal-install zlib1g-dev
+    sudo apt-get install cabal-install git zlib1g-dev
+
+Next update your cabal package list:
+
+    cabal update
 
 Then grab the source:
 
     git clone http://bugs.sleepanarchy.com/hkredmine.git
 
-Build and install:
+Build and install the program:
 
     cd hkredmine
     cabal sandbox init
     cabal install -j
 
-Then copy this somewhere in your path:
+Then copy the executable somewhere in your path:
 
     sudo cp dist/build/hkredmine/hkredmine /usr/bin
     cp dist/build/hkredmine/hkredmine ~/.bin
@@ -58,6 +63,7 @@ You may then remove the `hkredmine` directory:
 
     cd ..
     rm -rf hkredmine
+
 
 Configuration
 --------------
@@ -182,6 +188,7 @@ You can modify existing Issues using the `update` command:
 You can pass the `-e` flag to edit the description in your `$EDITOR`:
 
     hkredmine update 31 --priority Immediate -s "A NU Start" -e
+
 
 Creating Field Options
 -----------------------
