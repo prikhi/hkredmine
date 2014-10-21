@@ -36,7 +36,7 @@ import System.IO.Error              (isDoesNotExistError)
 -- | Retrieve the output width. Defaults to the terminal width, falling
 -- back to 80 characters if the width is unavailable.
 getWidth :: IO Integer
-getWidth    = liftM (maximum . (:[80]) . maybe 80 width) size
+getWidth    = liftM (maybe 80 width) size
 
 -- | Turn a 'DiffTime' into a Double representing the nubmer of hours.
 diffTimeToHours :: DiffTime -> Double

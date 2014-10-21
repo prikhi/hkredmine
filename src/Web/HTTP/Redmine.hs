@@ -131,7 +131,7 @@ getProjects                 = do Projects ps <- getEndPoint GetProjects []
 -- versions of a 'ProjectId' are also accepted.
 getProjectFromIdent :: ProjectIdent -> Redmine Project
 getProjectFromIdent pIdent = do
-        maybeProject <- getItemFromField getProjects (\p -> 
+        maybeProject <- getItemFromField getProjects (\p ->
                                 pIdent `elem` [ projectIdentifier p
                                               , show $ projectId p ])
         when (isNothing maybeProject) $ redmineLeft "Not a valid Project Identifier."
