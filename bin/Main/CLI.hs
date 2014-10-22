@@ -98,40 +98,58 @@ data HKRedmine
         | Watch         { issueId           :: Integer }
         | Unwatch       { issueId           :: Integer }
         | Versions      { projectIdent      :: String }
-        | Version       { versionId         :: Integer }
-        | NextVersion   { projectIdent      :: String }
+        | Version       { versionId         :: Integer
+                        , projectIdent      :: String
+                        , trackerIdent      :: String
+                        , statusIdent       :: String
+                        , priorityIdent     :: String
+                        , categoryIdent     :: String
+                        , assignedTo        :: String
+                        , sortByField       :: String
+                        , limitTo           :: Integer
+                        , issueOffset       :: Integer }
+        | NextVersion   { projectIdent      :: String
+                        , trackerIdent      :: String
+                        , statusIdent       :: String
+                        , priorityIdent     :: String
+                        , categoryIdent     :: String
+                        , assignedTo        :: String
+                        , sortByField       :: String
+                        , limitTo           :: Integer
+                        , issueOffset       :: Integer }
          deriving (Show, Data, Typeable)
 
 
 -- | Route a 'HKRedmine' Mode to a 'Redmine' Action.
 dispatch :: HKRedmine -> Redmine ()
 dispatch m = case m of
-        Use a           -> liftIO $ switchAccount a
-        Status          -> liftIO printStatus
-        Fields          -> printFields
-        Categories p    -> printCategories p
-        Projects        -> printProjects
-        Project p       -> printProject p
-        Issue i         -> printIssue i
-        i@(Issues {})   -> argsToIssueFilter i >>= printIssues
-        i@(Watched {})  -> argsToIssueFilter i >>=
-                           printIssues . (++ [ ("watcher_id", "me" ) ])
-        i@(NewIssue {}) -> argsToIssueObject i >>= createNewIssue
-        i@(Update {})   -> argsToIssueObject i >>= R.updateIssue (issueId i) >>
-                           liftIO (putStrLn $ "Updated Issue #" ++
-                                               show (issueId i) ++ ".")
-        Close i s       -> closeIssue i s
-        NewCat p c me   -> newCategory p c me
-        StartWork i     -> startTimeTracking i
-        StopWork a c    -> stopTimeTracking a c
-        Pause           -> liftIO pauseTimeTracking
-        Resume          -> liftIO resumeTimeTracking
-        Abort           -> liftIO abortTimeTracking
-        Watch i         -> watchIssue i
-        Unwatch i       -> unwatchIssue i
-        Versions p      -> printVersions p
-        Version v       -> printVersion v
-        NextVersion p   -> printNextVersion p
+    Use a               -> liftIO $ switchAccount a
+    Status              -> liftIO printStatus
+    Fields              -> printFields
+    Categories p        -> printCategories p
+    Projects            -> printProjects
+    Project p           -> printProject p
+    Issue i             -> printIssue i
+    i@(Issues {})       -> argsToIssueFilter i >>= printIssues
+    i@(Watched {})      -> argsToIssueFilter i >>=
+                            printIssues . (++ [ ("watcher_id", "me" ) ])
+    i@(NewIssue {})     -> argsToIssueObject i >>= createNewIssue
+    i@(Update {})       -> argsToIssueObject i >>= R.updateIssue (issueId i) >>
+                            liftIO (putStrLn $ "Updated Issue #" ++
+                                                show (issueId i) ++ ".")
+    Close i s           -> closeIssue i s
+    NewCat p c me       -> newCategory p c me
+    StartWork i         -> startTimeTracking i
+    StopWork a c        -> stopTimeTracking a c
+    Pause               -> liftIO pauseTimeTracking
+    Resume              -> liftIO resumeTimeTracking
+    Abort               -> liftIO abortTimeTracking
+    Watch i             -> watchIssue i
+    Unwatch i           -> unwatchIssue i
+    Versions p          -> printVersions p
+    v@(Version {})      -> argsToIssueFilter v >>= printVersion (versionId v)
+    nv@(NextVersion {}) -> argsToIssueFilter nv >>=
+                           printNextVersion (projectIdent nv)
 
 
 -- | Available usage modes
@@ -204,41 +222,12 @@ issues      = record Issues { projectIdent = def, statusIdent = def
                             , categoryIdent = def, assignedTo = def
                             , sortByField = def, limitTo = def
                             , issueOffset = def }
-            [ projectIdent  := def
-                            += typ "PROJECTIDENT"
-                            += name "project"
-                            += name "p"
+            [ projectFlag   += groupname "Filter"
+            , statusFlag "open" += groupname "Filter" += name "s"
+            , trackerFlag   += groupname "Filter"
+            , priorityFlag  += groupname "Filter"
+            , categoryFlag  += help "A Category Name. Requires a Project"
                             += groupname "Filter"
-                            += explicit
-                            += help "A Project's Identifier or ID"
-            , statusIdent   := "open"
-                            += typ "STATUS"
-                            += name "status"
-                            += name "s"
-                            += groupname "Filter"
-                            += explicit
-                            += help "A Status Name. open and closed are also valid choices"
-            , trackerIdent  := def
-                            += typ "TRACKERNAME"
-                            += name "tracker"
-                            += name "t"
-                            += groupname "Filter"
-                            += explicit
-                            += help "A Tracker Name"
-            , priorityIdent := def
-                            += typ "PRIORITYNAME"
-                            += name "priority"
-                            += name "i"
-                            += groupname "Filter"
-                            += explicit
-                            += help "A Priority Name"
-            , categoryIdent := def
-                            += typ "CATEGORYNAME"
-                            += name "category"
-                            += name "c"
-                            += groupname "Filter"
-                            += explicit
-                            += help "A Category Name. Requires filtering by Project"
             , assignedTo    := ""
                             += opt ("me" :: String)
                             += name "userid"
@@ -292,27 +281,14 @@ watched     = record Watched { projectIdent = def, statusIdent = def
               += help "Filter and Print your Watched Issues."
               += groupname "Issues"
 
-
 newissue    = record NewIssue { projectIdent = def, trackerIdent = def
                               , statusIdent = def, priorityIdent = def
                               , categoryIdent = def, isNotMine = def
                               , subject = def, description = def
                               , doneRatio = def, versionId = def
                               , editDescript = False }
-            [ projectIdent  := def
-                            += typ "PROJECTIDENT"
-                            += name "project"
-                            += name "p"
-                            += groupname "Required"
-                            += explicit
-                            += help "A Project's Identifier or ID"
-            , subject       := def
-                            += typ "STRING"
-                            += name "subject"
-                            += name "s"
-                            += groupname "Required"
-                            += explicit
-                            += help "The Issue's Subject"
+            [ projectFlag   += groupname "Required"
+            , subjectFlag   += groupname "Required"
             , description   := def
                             += typ "STRING"
                             += name "description"
@@ -320,34 +296,11 @@ newissue    = record NewIssue { projectIdent = def, trackerIdent = def
                             += explicit
                             += groupname "Optional"
                             += help "A Full Description About the Issue"
-            , statusIdent   := def
-                            += typ "STATUSNAME"
-                            += name "status"
-                            += name "a"
-                            += explicit
+            , statusFlag def += groupname "Optional" += name "a"
+            , trackerFlag   += groupname "Optional"
+            , priorityFlag  += groupname "Optional"
+            , categoryFlag  += help "A Category Name"
                             += groupname "Optional"
-                            += help "A Status Name"
-            , trackerIdent  := def
-                            += typ "TRACKERNAME"
-                            += name "tracker"
-                            += name "t"
-                            += explicit
-                            += groupname "Optional"
-                            += help "A Tracker Name"
-            , priorityIdent := def
-                            += typ "PRIORITYNAME"
-                            += name "priority"
-                            += name "i"
-                            += explicit
-                            += groupname "Optional"
-                            += help "A Priority Name"
-            , categoryIdent := def
-                            += typ "CATEGORYNAME"
-                            += name "category"
-                            += name "c"
-                            += groupname "Optional"
-                            += explicit
-                            += help "A Category Name"
             , isNotMine     := def
                             += name "not-mine"
                             += name "n"
@@ -393,20 +346,8 @@ update      = record Update { issueId = def, projectIdent = def
                             , versionId = def, doneRatio = def
                             , editDescript = False , notes = def }
             [ issueArg
-            , projectIdent  := def
-                            += typ "PROJECTIDENT"
-                            += name "project"
-                            += name "p"
-                            += groupname "Optional"
-                            += explicit
-                            += help "A Project's Identifier"
-            , subject       := def
-                            += typ "STRING"
-                            += name "subject"
-                            += name "s"
-                            += groupname "Optional"
-                            += explicit
-                            += help "The Issue's Subject"
+            , projectFlag   += groupname "Optional"
+            , subjectFlag   += groupname "Optional"
             , notes         := def
                             += typ "STRING"
                             += name "comment"
@@ -507,28 +448,84 @@ abort       = record Abort {} []
               += help "Abort time tracking."
               += groupname "Time Tracking"
 
+version     = record Version { versionId = def, statusIdent = def
+                             , trackerIdent = def, priorityIdent = def
+                             , categoryIdent = def, assignedTo = def
+                             , sortByField = def, limitTo = def
+                             , issueOffset = def, projectIdent = def }
+            [ versionId := def
+                        += argPos 0 += typ "VERSIONID"
+            , projectFlag   += groupname "Filter"
+            , statusFlag "open" += groupname "Filter" += name "s"
+            , trackerFlag   += groupname "Filter"
+            , priorityFlag  += groupname "Filter"
+            , categoryFlag  += help "A Category Name. Requires a Project"
+                            += groupname "Filter"
+            ] += help "Print the details of a Version."
+              += groupname "Versions"
+
+nextversion = record NextVersion
+                             { projectIdent = def, statusIdent = def
+                             , trackerIdent = def, priorityIdent = def
+                             , categoryIdent = def, assignedTo = def
+                             , sortByField = def, limitTo = def
+                             , issueOffset = def } [ projectArg ]
+              += help "Print the next Version due for a Project."
+              += groupname "Versions"
 
 versions    = record Versions { projectIdent = def } [ projectArg ]
               += help "Print all of a Project's Versions."
               += groupname "Versions"
 
-version     = record Version { versionId = def }
-            [ versionId := def
-                        += argPos 0 += typ "VERSIONID"
-            ] += help "Print the details of a Version."
-              += groupname "Versions"
-
-nextversion = record NextVersion { projectIdent = def } [ projectArg ]
-              += help "Print the next Version due for a Project."
-              += groupname "Versions"
-
 
 -- Standard Arguments
-projectArg, issueArg :: Annotate Ann
--- | Make the projectIdent the first required argument
-projectArg  = projectIdent := def += argPos 0 += typ "PROJECTIDENT"
--- | Make the issueId the first required arugment
-issueArg    = issueId := def += argPos 0 += typ "ISSUEID"
+projectArg, issueArg, projectFlag, trackerFlag, priorityFlag, categoryFlag,
+    subjectFlag :: Annotate Ann
+-- | Make the projectIdent the first required argument.
+projectArg          = projectIdent := def += argPos 0 += typ "PROJECTIDENT"
+-- | Make the issueId the first required arugment.
+issueArg            = issueId := def += argPos 0 += typ "ISSUEID"
+-- | An optional flag for a projectIdent argument.
+projectFlag         = projectIdent := def
+                    += typ "PROJECTIDENT"
+                    += name "project"
+                    += name "p"
+                    += explicit
+                    += help "A Project's Identifier or ID"
+-- | An optional flag for a trackerIdent argument.
+trackerFlag         =  trackerIdent  := def
+                    += typ "TRACKERNAME"
+                    += name "tracker"
+                    += name "t"
+                    += explicit
+                    += help "A Tracker Name"
+-- | An optional flag for a priorityIdent argument.
+priorityFlag        = priorityIdent := def
+                    += typ "PRIORITYNAME"
+                    += name "priority"
+                    += name "i"
+                    += explicit
+                    += help "A Priority Name"
+-- | An optional flag for a categoryIdent argument.
+categoryFlag        = categoryIdent := def
+                    += typ "CATEGORYNAME"
+                    += name "category"
+                    += name "c"
+                    += explicit
+-- | An optional flag for a subject argument.
+subjectFlag         = subject := def
+                    += typ "STRING"
+                    += name "subject"
+                    += name "s"
+                    += explicit
+                    += help "The Issue's Subject"
+-- | An optional flag for a statusIdent argument.
+statusFlag :: String -> Annotate Ann
+statusFlag d        = statusIdent := d
+                    += typ "STATUS"
+                    += name "status"
+                    += explicit
+                    += help "A Status Name"
 
 
 -- Utils
@@ -587,6 +584,26 @@ argsToIssueFilter w@(Watched {})    = argsToIssueFilter Issues
             , sortByField           = sortByField w
             , limitTo               = limitTo w
             , issueOffset           = issueOffset w }
+argsToIssueFilter v@(Version {})    = argsToIssueFilter Issues
+            { projectIdent          = projectIdent v
+            , trackerIdent          = trackerIdent v
+            , statusIdent           = statusIdent v
+            , priorityIdent         = priorityIdent v
+            , categoryIdent         = categoryIdent v
+            , assignedTo            = assignedTo v
+            , sortByField           = sortByField v
+            , limitTo               = limitTo v
+            , issueOffset           = issueOffset v }
+argsToIssueFilter v@(NextVersion {})    = argsToIssueFilter Issues
+            { projectIdent          = projectIdent v
+            , trackerIdent          = trackerIdent v
+            , statusIdent           = statusIdent v
+            , priorityIdent         = priorityIdent v
+            , categoryIdent         = categoryIdent v
+            , assignedTo            = assignedTo v
+            , sortByField           = sortByField v
+            , limitTo               = limitTo v
+            , issueOffset           = issueOffset v }
 argsToIssueFilter _ = redmineLeft "Tried applying an issue filter to non-issue command."
 
 -- | Transform the arguments of the NewIssue mode into a JSON object for

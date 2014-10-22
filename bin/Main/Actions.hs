@@ -30,6 +30,7 @@ module Main.Actions
         ) where
 
 
+import qualified Data.ByteString.Char8 as BC    (pack)
 import qualified Data.ByteString.Lazy as LB     (ByteString)
 import qualified Data.List as L
 
@@ -122,11 +123,11 @@ printIssue i            = getIssue i >>= liftIO . putStrLn . issueDetail
 
 
 -- | Print A 'Version' and it's Issues.
-printVersion :: VersionId -> Redmine ()
-printVersion v          = do
+printVersion :: VersionId -> IssueFilter -> Redmine ()
+printVersion v f        = do
         version         <- getVersion v
-        let pID         = versionProjectId version
-        issues          <- getVersionsIssues pID version
+        issues          <- getIssues $ f ++ [ ( "fixed_version_id"
+                                              , BC.pack $ show v) ]
         width           <- liftIO getWidth
         liftIO $ putStrLn (versionDetail version) >> putStrLn "" >>
                  putStrLn "Issues:" >> putStrLn (issuesTable width issues)
@@ -140,13 +141,13 @@ printVersions pIdent    = do
         liftIO . putStrLn . versionTable width $ sortedVs
 
 -- | Print the 'Version' that is next due for a 'Project'.
-printNextVersion :: ProjectIdent -> Redmine ()
-printNextVersion pIdent = do
+printNextVersion :: ProjectIdent -> IssueFilter -> Redmine ()
+printNextVersion pIdent f   = do
         maybeVersion    <- getProjectFromIdent pIdent >>=
                            getNextVersionDue . projectId
         case maybeVersion of
             Nothing     -> redmineLeft "No valid version found."
-            Just v      -> printVersion $ versionId v
+            Just v      -> printVersion (versionId v) f
 
 
 -- Issue Creation/Updates

@@ -291,7 +291,7 @@ projects:
 We find a project we want to work on, let's check out the open issues in the
 project's next version:
 
-    hkredmine nextversion acorn-accounting
+    hkredmine nextversion acorn-accounting --sort priority:desc
 
 We see an Issue that catches our eye, let's see it's details:
 
