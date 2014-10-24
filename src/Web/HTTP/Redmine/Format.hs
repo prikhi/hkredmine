@@ -27,7 +27,7 @@ projectsTable :: Integer -> [Project] -> String
 projectsTable = formatTable
         [ Column "ID" middleCenter middleLeft 5 $ show . projectId
         , Column "Identifier" middleCenter middleCenter 22 projectIdentifier
-        , Column "Name" middleCenter middleLeft 17 projectName
+        , Column "Name" middleCenter middleCenter 17 projectName
         , Column "Description" middleCenter middleLeft 35 $
                 takeWhile (/= '\r') . projectDescription
         , Column "Updated" middleCenter middleCenter 12 $
