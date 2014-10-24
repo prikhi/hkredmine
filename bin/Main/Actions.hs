@@ -30,7 +30,6 @@ module Main.Actions
         ) where
 
 
-import qualified Data.ByteString.Char8 as BC    (pack)
 import qualified Data.ByteString.Lazy as LB     (ByteString)
 import qualified Data.List as L
 
@@ -126,8 +125,7 @@ printIssue i            = getIssue i >>= liftIO . putStrLn . issueDetail
 printVersion :: VersionId -> IssueFilter -> Redmine ()
 printVersion v f        = do
         version         <- getVersion v
-        issues          <- getIssues $ f ++ [ ( "fixed_version_id"
-                                              , BC.pack $ show v) ]
+        issues          <- getVersionsIssues version f
         width           <- liftIO getWidth
         liftIO $ putStrLn (versionDetail version) >> putStrLn "" >>
                  putStrLn "Issues:" >> putStrLn (issuesTable width issues)

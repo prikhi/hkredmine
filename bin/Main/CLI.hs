@@ -99,7 +99,6 @@ data HKRedmine
         | Unwatch       { issueId           :: Integer }
         | Versions      { projectIdent      :: String }
         | Version       { versionId         :: Integer
-                        , projectIdent      :: String
                         , trackerIdent      :: String
                         , statusIdent       :: String
                         , priorityIdent     :: String
@@ -452,10 +451,9 @@ version     = record Version { versionId = def, statusIdent = def
                              , trackerIdent = def, priorityIdent = def
                              , categoryIdent = def, assignedTo = def
                              , sortByField = def, limitTo = def
-                             , issueOffset = def, projectIdent = def }
+                             , issueOffset = def }
             [ versionId := def
                         += argPos 0 += typ "VERSIONID"
-            , projectFlag   += groupname "Filter"
             , statusFlag "open" += groupname "Filter" += name "s"
             , trackerFlag   += groupname "Filter"
             , priorityFlag  += groupname "Filter"
@@ -584,8 +582,10 @@ argsToIssueFilter w@(Watched {})    = argsToIssueFilter Issues
             , sortByField           = sortByField w
             , limitTo               = limitTo w
             , issueOffset           = issueOffset w }
-argsToIssueFilter v@(Version {})    = argsToIssueFilter Issues
-            { projectIdent          = projectIdent v
+argsToIssueFilter v@(Version {})    = do
+            vers                    <- R.getVersion $ versionId v
+            argsToIssueFilter Issues {
+              projectIdent          = show $ R.versionProjectId vers
             , trackerIdent          = trackerIdent v
             , statusIdent           = statusIdent v
             , priorityIdent         = priorityIdent v

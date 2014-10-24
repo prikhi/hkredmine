@@ -275,10 +275,9 @@ getVersion :: VersionId -> Redmine Version
 getVersion v                = getEndPoint (GetVersion v) []
 
 -- | Retrieve all 'Issues' of a 'Version'.
-getVersionsIssues :: ProjectId -> Version -> Redmine [Issue]
-getVersionsIssues pID v     = getProjectsIssues pID
-        [ ("limit", "100")
-        , ("fixed_version_id", BC.pack . show $ versionId v) ]
+getVersionsIssues :: Version -> IssueFilter -> Redmine [Issue]
+getVersionsIssues v f       = getProjectsIssues (versionProjectId v) $ f ++
+        [ ("fixed_version_id", BC.pack . show $ versionId v) ]
 
 -- | Retrieve the next open 'Version' of a 'Project' with the soonest
 -- 'versionDueDate'.
