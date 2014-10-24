@@ -167,7 +167,7 @@ closeIssue i ms         = do
         closedStatus    <- redmineTakeMVar closedFork
         today           <- liftIO $ fmap utctDay getCurrentTime
         let updateDue   = isNothing (issueDueDate issue) ||
-                          fromJust (issueDueDate issue) `notElem` [ "", show today ]
+                          (null . fromJust $ issueDueDate issue)
             updateStat  = isJust closedStatus && issueStatus issue /= "Closed"
             updateDone  = issueDoneRatio issue /= 100
             doSomething = updateStat || updateDue || updateDone
