@@ -2,12 +2,12 @@ name:                hkredmine
 version:             0.1.0.0
 synopsis:            A Redmine CLI Client
 description:         A Redmine CLI Client
-homepage:            http://bugs.sleepanarchy.com
+homepage:            http://bugs.sleepanarchy.com/projects/hkredmine
 license:             GPL-3
 license-file:        LICENSE
 author:              Pavan Rikhi
 maintainer:          pavan@sleepanarchy.com
-copyright:           2014
+copyright:           2014-2015
 category:            Web
 build-type:          Simple
 extra-source-files:  README.md
@@ -23,7 +23,7 @@ executable hkredmine
                        Main.CLI,
                        Main.Utils
 
-  build-depends:       base >=4.6 && <4.8,
+  build-depends:       base >=4.6 && <5,
                        aeson,
                        hkredmine,
                        transformers,
@@ -52,7 +52,7 @@ library
                        Web.HTTP.Redmine.FormatTable,
                        Web.HTTP.Redmine.Monad,
                        Web.HTTP.Redmine.Types
-  build-depends:       base >=4.6 && <4.8,
+  build-depends:       base >=4.6 && <5,
                        http-conduit,
                        http-client,
                        http-types,
