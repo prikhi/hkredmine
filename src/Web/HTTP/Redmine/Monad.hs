@@ -29,7 +29,7 @@ import Control.Monad.Trans.Either       (runEitherT, EitherT, left,
 import Control.Monad.Trans.Resource     (runResourceT, ResourceT)
 import Data.Aeson                       (FromJSON, eitherDecode)
 import Network.HTTP.Conduit             (Manager, newManager, Response,
-                                         conduitManagerSettings, responseBody)
+                                         tlsManagerSettings, responseBody)
 
 
 -- | The Redmine Monad Holds the Configuration State and Allows Network and
@@ -54,7 +54,7 @@ data RedmineConfig       = RedmineConfig
 -- | Creates a 'RedmineConfig' with a new Manager
 defaultRedmineConfig :: MonadIO m => m RedmineConfig
 defaultRedmineConfig     = do
-        man <- liftIO $ newManager conduitManagerSettings
+        man <- liftIO $ newManager tlsManagerSettings
         return RedmineConfig { redAPI     = ""
                              , redURL     = ""
                              , redManager = man }

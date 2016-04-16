@@ -33,7 +33,6 @@ module Main.Actions
 import qualified Data.ByteString.Lazy as LB     (ByteString)
 import qualified Data.List as L
 
-import Control.Applicative      ((<$>))
 import Control.Monad            ((>=>), when, unless, join, void)
 import Control.Monad.Except     (runExceptT)
 import Control.Monad.IO.Class   (liftIO)

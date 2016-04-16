@@ -16,7 +16,6 @@ import qualified Data.ByteString.Char8 as BC    (pack)
 import qualified Data.ByteString.Lazy as LB     (ByteString)
 
 
-import Control.Applicative      ((<$>))
 import Control.Monad            (when)
 import Control.Monad.IO.Class   (liftIO)
 import Data.Aeson               ((.=), object, encode, FromJSON)

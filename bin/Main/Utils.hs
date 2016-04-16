@@ -18,7 +18,6 @@ module Main.Utils
 
 import Prelude hiding (readFile)
 
-import Control.Applicative          ((<$>))
 import Control.Exception            (catch, throwIO)
 import Control.Monad                (liftM)
 import Data.Time.Clock              (DiffTime)

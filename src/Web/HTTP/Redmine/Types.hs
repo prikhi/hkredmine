@@ -34,7 +34,6 @@ module Web.HTTP.Redmine.Types
         , Categories(..)
         ) where
 
-import Control.Applicative  ((<$>), (<*>))
 import Data.Aeson           ((.:), (.:?), (.=), (.!=), object,
                              FromJSON, parseJSON, Value(Object))
 
