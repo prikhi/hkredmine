@@ -270,9 +270,20 @@ getVersions :: ProjectId -> Redmine [Version]
 getVersions p               = do Versions vs <- getEndPoint (GetVersions p) []
                                  return vs
 
+-- | Retrieve all 'Versions' from all 'Projects'.
+getAllVersions :: Redmine [Version]
+getAllVersions              = do Projects ps <- getEndPoint (GetProjects) []
+                                 let projectIds = map (\p -> projectId p) ps
+                                 vs <- mapM getVersions projectIds
+                                 return $ concat vs
+
 -- | Retrieve a 'Version' from it's id.
-getVersion :: VersionId -> Redmine Version
-getVersion v                = getEndPoint (GetVersion v) []
+getVersion :: VersionId -> Redmine (Maybe Version)
+getVersion v                = do versions <- getAllVersions
+                                 let versionIds = map (\vers -> versionId vers) versions
+                                 if v `elem` versionIds
+                                 then (getEndPoint (GetVersion v) []) >>= (\vers -> return $ Just vers)
+                                 else  return Nothing
 
 -- | Retrieve all 'Issues' of a 'Version'.
 getVersionsIssues :: Version -> IssueFilter -> Redmine [Issue]

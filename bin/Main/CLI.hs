@@ -582,7 +582,7 @@ argsToIssueFilter w@(Watched {})    = argsToIssueFilter Issues
             , limitTo               = limitTo w
             , issueOffset           = issueOffset w }
 argsToIssueFilter v@(Version {})    = do
-            vers                    <- R.getVersion $ versionId v
+            vers                    <- getValidatedVersion $ versionId v
             argsToIssueFilter Issues {
               projectIdent          = show $ R.versionProjectId vers
             , trackerIdent          = trackerIdent v

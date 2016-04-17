@@ -15,6 +15,7 @@ module Main.Actions
         , printIssues
         , printVersion
         , printVersions
+        , getValidatedVersion
         , printNextVersion
         , createNewIssue
         , closeIssue
@@ -123,11 +124,18 @@ printIssue i            = getIssue i >>= liftIO . putStrLn . issueDetail
 -- | Print A 'Version' and it's Issues.
 printVersion :: VersionId -> IssueFilter -> Redmine ()
 printVersion v f        = do
-        version         <- getVersion v
+        version         <- getValidatedVersion v
         issues          <- getVersionsIssues version f
         width           <- liftIO getWidth
         liftIO $ putStrLn (versionDetail version) >> putStrLn "" >>
                  putStrLn "Issues:" >> putStrLn (issuesTable width issues)
+
+-- | Verify that a 'Version' Exists or Exit with an Error.
+getValidatedVersion :: VersionId -> Redmine Version
+getValidatedVersion v          =  getVersion v >>= validate
+        where validate Nothing = liftIO $ putStrLn "Version does not exist."
+                                       >> exitFailure
+              validate (Just version) = return version
 
 -- | Print a table showing all 'Versions' of a 'Project'.
 printVersions :: ProjectIdent -> Redmine ()
