@@ -272,8 +272,8 @@ getVersions p               = do Versions vs <- getEndPoint (GetVersions p) []
 
 -- | Retrieve all 'Versions' from all 'Projects'.
 getAllVersions :: Redmine [Version]
-getAllVersions              = do Projects ps <- getEndPoint (GetProjects) []
-                                 let projectIds = map (\p -> projectId p) ps
+getAllVersions              = do Projects ps <- getEndPoint GetProjects []
+                                 let projectIds = map projectId ps
                                  vs <- mapM getVersions projectIds
                                  return $ concat vs
 
