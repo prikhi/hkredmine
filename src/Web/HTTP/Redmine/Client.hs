@@ -76,7 +76,9 @@ makeRequest request = do
         config      <- get
         catch (httpLbs request $ redManager config)
             (\e -> case e :: HttpException of
-                StatusCodeException status _ _ -> redmineLeft $
+                HttpExceptionRequest _ (StatusCodeException response _) ->
+                    let status = responseStatus response
+                    in redmineLeft $
                         "Status Code: " ++ show (statusCode status) ++ "\n" ++
                         "Status Message: " ++ show (statusMessage status)
                 _                              -> throwIO e)
@@ -89,7 +91,7 @@ makeRequest request = do
 redmineRequest :: EndPoint -> Redmine Request
 redmineRequest ep       = do
         config          <- get
-        initReq         <- liftIO . parseUrl $ makeURL (redURL config) ep
+        initReq         <- liftIO . parseUrlThrow $ makeURL (redURL config) ep
         return . applyBasicAuth (redAPI config) "" $
                initReq { requestHeaders = [ ("Content-Type", "application/json")
                                           , ("X-Redmine-API-Key", redAPI config)
