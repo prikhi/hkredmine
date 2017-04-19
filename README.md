@@ -31,8 +31,11 @@ Installation
 No packages currently exist, if you have experience packaging Haskell programs
 for Debian, Arch Linux, etc. please drop us a patch or some hints.
 
-You can still build and install directly from the source. You will need
-`cabal`, `git` and `zlib`:
+If you're using [Stack][stack], you should be able to just run `stack setup` in
+this directory, followed by `stack install`.
+
+Otherwise, you will need to build and install directly from the source. You
+will need `cabal`, `git` and `zlib`:
 
     # Arch-Linux
     sudo pacman -S cabal-install git zlib
@@ -379,4 +382,5 @@ Use `cabal` to build the documentation:
     cabal haddock
 
 
+[stack]: https://docs.haskellstack.org/en/stable/README/
 [vim-redminewiki]: https://github.com/s3rvac/vim-syntax-redminewiki/

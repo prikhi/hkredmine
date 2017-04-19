@@ -7,7 +7,7 @@ license:             GPL-3
 license-file:        LICENSE
 author:              Pavan Rikhi
 maintainer:          pavan@sleepanarchy.com
-copyright:           2014-2015
+copyright:           2014-2017
 category:            Web
 build-type:          Simple
 extra-source-files:  README.md
@@ -33,9 +33,9 @@ executable hkredmine
                        strict,
                        bytestring,
                        ConfigFile,
-                       mtl>=2.2,
+                       mtl,
                        http-client,
-                       process>=1.2,
+                       process,
                        temporary,
                        parallel,
                        terminal-size,
